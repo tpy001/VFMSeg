@@ -64,11 +64,11 @@ def parse_args():
 def main():
     args = parse_args()
 
-    # load config
+    # load configz
     cfg = Config.fromfile(args.config)
 
     """if "uda" in cfg.keys():
-        cfg["model"] = cfg["uda"]"""
+      cfg["model"] = cfg["uda"]"""
 
     cfg.launcher = args.launcher
     if args.cfg_options is not None:
@@ -104,6 +104,9 @@ def main():
     # resume training
     cfg.resume = args.resume
 
+    # tpy add
+    cfg['model']['work_dir'] = cfg['work_dir']
+    
     # build the runner from config
     if "runner_type" not in cfg:
         # build the default runner

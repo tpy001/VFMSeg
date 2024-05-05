@@ -3,3 +3,4 @@ from .models import *
 from .datasets import *
 from .optimizers import *
 from .hooks import *
+from .utils import *

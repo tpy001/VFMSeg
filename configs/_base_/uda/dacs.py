@@ -4,15 +4,12 @@
 # ---------------------------------------------------------------
 
 # Baseline UDA
-uda = dict(
-    type='DACS',
-    alpha=0.99,
+model = dict(
+    # type='DACS',
+    alpha=0.999,
     pseudo_threshold=0.968,
-    pseudo_weight_ignore_top=0,
-    pseudo_weight_ignore_bottom=0,
-    imnet_feature_dist_lambda=0,
-    imnet_feature_dist_classes=None,
-    imnet_feature_dist_scale_min_ratio=None,
+    pseudo_weight_ignore_top=15,
+    pseudo_weight_ignore_bottom=120,
     mix='class',
     blur=True,
     color_jitter_strength=0.2,

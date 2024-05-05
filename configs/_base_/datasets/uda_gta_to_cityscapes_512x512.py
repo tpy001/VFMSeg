@@ -29,7 +29,7 @@ val_dataloader = dict(
     num_workers=4,
     persistent_workers=True,
     sampler=dict(type="DefaultSampler", shuffle=False),
-    dataset=uda_dataset_val,
+    dataset= {{_base_.val_cityscapes}},
 )
 
 test_dataloader = val_dataloader

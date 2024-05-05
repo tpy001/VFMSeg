@@ -4,21 +4,23 @@ _base_ = [
     "../_base_/default_runtime.py",
     #"../_base_/models/rein_dinov2_segformer.py",
     "../_base_/models/dinov2_SegFormer_frozen.py",
-    "../_base_/uda/dacs.py"
+    # "../_base_/models/rein_dinov2_segformer.py",
+
 ]
 
-
-uda = dict(
-    model={{_base_.model}},
-    # Increased Alpha
+model = dict(
+    type='DACS',
     alpha=0.999,
-    # Thing-Class Feature Distance
-    imnet_feature_dist_lambda=0.005,
-    imnet_feature_dist_classes=[6, 7, 11, 12, 13, 14, 15, 16, 17, 18],
-    imnet_feature_dist_scale_min_ratio=0.75,
-    # Pseudo-Label Crop
+    pseudo_threshold=0.968,
     pseudo_weight_ignore_top=15,
-    pseudo_weight_ignore_bottom=120)
+    pseudo_weight_ignore_bottom=120,
+    mix='class',
+    blur=True,
+    color_jitter_strength=0.2,
+    color_jitter_probability=0.2,
+    debug_img_interval=500,
+    print_grad_magnitude=False,
+)
 
 embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
 optim_wrapper = dict(
@@ -42,7 +44,7 @@ param_scheduler = [
 ]
 
 
-train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=4000)
+train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=1000)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 default_hooks = dict(

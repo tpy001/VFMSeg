@@ -1,4 +1,5 @@
-from .uda_dataset import UDADataset
+from .uda_dataset import DGDataset,UDADataset
 __all__ = [
-    "UDADataset",
+    "DGDataset",
+    "UDADataset"
 ]

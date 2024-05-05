@@ -34,7 +34,7 @@ model = dict(
         type='SegformerHead',
         in_channels=[1024, 1024, 1024, 1024],
         in_index=[0, 1, 2, 3],
-        channels=128,
+        channels=256,
         dropout_ratio=0.1,
         num_classes=19,
         norm_cfg=dict(type='BN', requires_grad=True),
