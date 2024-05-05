@@ -250,7 +250,7 @@ class DACS(EncoderDecoder):
             batch_img_metas = [
                 data_sample.metainfo for data_sample in tgt_data_samples
             ]
-            ema_logits = self.get_model().encode_decode(target_img, batch_img_metas)
+            ema_logits = self.get_ema_model().encode_decode(target_img, batch_img_metas)
             ema_softmax = torch.softmax(ema_logits, dim=1)
             pseudo_prob, pseudo_label = torch.max(ema_softmax, dim=1)
             ps_large_p = pseudo_prob.ge(self.pseudo_threshold).long() == 1
