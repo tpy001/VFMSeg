@@ -20,7 +20,8 @@ from mmseg.models.losses import accuracy
 from torch import Tensor
 from typing import List
 from typing import Iterable
-
+from torch.nn.modules.dropout import _DropoutNd
+from timm.models.layers import DropPath
 
 def detach_everything(everything):
     if isinstance(everything, Tensor):
@@ -130,9 +131,10 @@ class DACS(EncoderDecoder):
                 mcp[i].data[:] = mp[i].data[:].clone()
 
     def _update_ema(self, iter):
+        mp = self.get_trainable_param(self.get_model())
+        mcp = self.get_trainable_param(self.get_ema_model())
         alpha_teacher = min(1 - 1 / (iter + 1), self.alpha)
-        for ema_param, param in zip(self.get_ema_model().parameters(),
-                                    self.get_model().parameters()):
+        for ema_param, param in zip(mcp,mp):
             if not param.data.shape:  # scalar tensor
                 ema_param.data = \
                     alpha_teacher * ema_param.data + \
@@ -171,11 +173,14 @@ class DACS(EncoderDecoder):
         
         
         parsed_losses, log = self.parse_losses(loss)  # type: ignore
-        optim_wrapper.update_params(parsed_losses)
+        # optim_wrapper.update_params(parsed_losses)
 
         log_vars['total_loss'] += parsed_losses.item()
         log_vars[f'decode.loss_{suffix}'] = log['loss_ce'].item()
         log_vars[f'decode.acc_{suffix}'] = log['acc_seg'].item()
+
+        final_loss = optim_wrapper.scale_loss(parsed_losses)
+        optim_wrapper.backward(final_loss)
     
 
     def train_step(self, data,optim_wrapper):
@@ -200,7 +205,10 @@ class DACS(EncoderDecoder):
             target_img = data['target_img']
             img = self.data_preprocessor(img, True)
             target_img = self.data_preprocessor(target_img, True)
-            log_vars = self.forward_train(img,target_img,optim_wrapper)  # type: ignore
+            log_vars = self.forward_train(img,target_img,optim_wrapper) 
+            
+            optim_wrapper.step()
+            optim_wrapper.zero_grad() # type: ignore
         return log_vars
         
     
@@ -245,7 +253,11 @@ class DACS(EncoderDecoder):
         
         
         with torch.no_grad():
-            self.get_ema_model().eval()
+            for m in self.get_ema_model().modules():
+                if isinstance(m, _DropoutNd):
+                    m.training = False
+                if isinstance(m, DropPath):
+                    m.training = False
 
             batch_img_metas = [
                 data_sample.metainfo for data_sample in tgt_data_samples
