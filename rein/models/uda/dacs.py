@@ -4,16 +4,22 @@
 # ---------------------------------------------------------------
 from mmseg.registry import MODELS
 
+
+
 import torch
 from mmseg.models import EncoderDecoder
 from copy import deepcopy
-from mmseg.models import  build_segmentor
+from mmseg.models import  build_head
 from .dacs_transforms import (denorm, get_class_masks,strong_transform)
 import numpy as np
 import random
 import os
 from collections import OrderedDict
-from matplotlib import pyplot as plt
+
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+
 from ...utils import subplotimg
 from mmseg.models.utils  import resize
 from mmseg.models.losses import accuracy
@@ -34,20 +40,20 @@ def detach_everything(everything):
 @MODELS.register_module()
 class DACS(EncoderDecoder):
 
-    def train(self, mode=True):
+    """ def train(self, mode=True):
         super().train(mode)
         self.backbone.eval()
         for param in self.backbone.parameters():
-            param.requires_grad = False
+            param.requires_grad = False """
 
-    def extract_feat(self, inputs: Tensor) -> List[Tensor]:
+    ''' def extract_feat(self, inputs: Tensor) -> List[Tensor]:
         """Extract features from images."""
         with torch.no_grad():
             x = self.backbone(inputs)
             x = detach_everything(x)
         if self.with_neck:
             x = self.neck(x)
-        return x
+        return x '''
 
     def __init__(self, **cfg):
         super().__init__(
@@ -75,18 +81,10 @@ class DACS(EncoderDecoder):
         self.std = None
         self.work_dir = cfg['work_dir']
 
-        ema_cfg = {
-            'type': 'EncoderDecoder',
-            'backbone': cfg['backbone'],
-            'decode_head': cfg['decode_head'],
-            'train_cfg': cfg['train_cfg'],
-            'test_cfg': cfg['test_cfg'],
-            'data_preprocessor': cfg['data_preprocessor']
-        }
 
-        self.ema_model = build_segmentor(ema_cfg)
+        # self.ema_model = build_segmentor(ema_cfg)
 
-        # self.ema_model.decode_head = deepcopy(self.decode_head)
+        self.ema_head = build_head(deepcopy(cfg['decode_head']))
 
     def init_log_vars(self,source=True,target=None):
         log_vars = OrderedDict()
@@ -103,7 +101,7 @@ class DACS(EncoderDecoder):
         return log_vars
     
     def get_ema_model(self):
-        return self.ema_model
+        return self.ema_head
     
     def get_model(self):
         return self
@@ -122,7 +120,7 @@ class DACS(EncoderDecoder):
             param.detach_()
 
         mp = self.get_trainable_param(self.get_model())
-        mcp = self.get_trainable_param(self.get_ema_model())
+        mcp = list( self.get_ema_model().parameters() )
 
         for i in range(0, len(mp)):
             if not mcp[i].data.shape:  # scalar tensor
@@ -132,7 +130,7 @@ class DACS(EncoderDecoder):
 
     def _update_ema(self, iter):
         mp = self.get_trainable_param(self.get_model())
-        mcp = self.get_trainable_param(self.get_ema_model())
+        mcp = list( self.get_ema_model().parameters() )
         alpha_teacher = min(1 - 1 / (iter + 1), self.alpha)
         for ema_param, param in zip(mcp,mp):
             if not param.data.shape:  # scalar tensor
@@ -262,7 +260,10 @@ class DACS(EncoderDecoder):
             batch_img_metas = [
                 data_sample.metainfo for data_sample in tgt_data_samples
             ]
-            ema_logits = self.get_ema_model().encode_decode(target_img, batch_img_metas)
+
+            x = self.extract_feat(target_img)
+            ema_logits = self.get_ema_model().predict(x,batch_img_metas,test_cfg={})
+           
             ema_softmax = torch.softmax(ema_logits, dim=1)
             pseudo_prob, pseudo_label = torch.max(ema_softmax, dim=1)
             ps_large_p = pseudo_prob.ge(self.pseudo_threshold).long() == 1
@@ -322,6 +323,7 @@ class DACS(EncoderDecoder):
 
 
                 for j in range(batch_size):
+                    plt.ioff()
                     rows, cols = 4, 5
                     fig, axs = plt.subplots(rows,cols,figsize=(3 * cols, 3 * rows),gridspec_kw={'hspace': 0.1,'wspace': 0,'top': 0.95,'bottom': 0,'right': 1,'left': 0},)
                     

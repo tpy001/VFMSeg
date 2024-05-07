@@ -3,8 +3,8 @@ _base_ = [
     "../_base_/datasets/uda_gta_to_cityscapes_512x512.py",
     "../_base_/default_runtime.py",
     #"../_base_/models/rein_dinov2_segformer.py",
-    "../_base_/models/dinov2_SegFormer_frozen.py",
-    # "../_base_/models/rein_dinov2_segformer.py",
+    #"../_base_/models/dinov2_SegFormer_frozen.py",
+    "../_base_/models/rein_dinov2_segformer.py",
 
 ]
 
