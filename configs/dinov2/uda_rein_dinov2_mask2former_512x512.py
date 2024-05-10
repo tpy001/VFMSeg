@@ -4,7 +4,8 @@ _base_ = [
     "../_base_/default_runtime.py",
     #"../_base_/models/rein_dinov2_segformer.py",
     #"../_base_/models/dinov2_SegFormer_frozen.py",
-    "../_base_/models/rein_dinov2_segformer.py",
+    "../_base_/models/rein_dinov2_mask2former.py",
+
 
 ]
 

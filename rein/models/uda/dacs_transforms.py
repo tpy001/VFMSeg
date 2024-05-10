@@ -8,9 +8,16 @@ import torch
 import torch.nn as nn
 
 
-def strong_transform(param, data=None, target=None):
+def strong_transform(param, data=None, target=None,mix='one_mix'):
+    # data: [source img, tgt img]
+    # target: [source label, tgt label]
+
     assert ((data is not None) or (target is not None))
-    data, target = one_mix(mask=param['mix'], data=data, target=target)
+    if  mix == 'one_mix':
+        data, target = one_mix(mask=param['mix'], data=data, target=target)
+    elif mix == 'cut_mix':
+        data, target = cutmix(data, target)
+
     data, target = color_jitter(
         color_jitter=param['color_jitter'],
         s=param['color_jitter_s'],
@@ -117,3 +124,40 @@ def one_mix(mask, data=None, target=None):
         target = (stackedMask0 * target[0] +
                   (1 - stackedMask0) * target[1]).unsqueeze(0)
     return data, target
+
+def rand_bbox(size, lam):
+    """Generate a random square bbox based on lambda value."""
+    W = size[2]
+    H = size[3]
+    cut_rat = np.sqrt(1. - lam)
+    cut_w = int(W * cut_rat)
+    cut_h = int(H * cut_rat)
+
+    # uniform
+    cx = np.random.randint(W)
+    cy = np.random.randint(H)
+
+    bbx1 = np.clip(cx - cut_w // 2, 0, W)
+    bby1 = np.clip(cy - cut_h // 2, 0, H)
+    bbx2 = np.clip(cx + cut_w // 2, 0, W)
+    bby2 = np.clip(cy + cut_h // 2, 0, H)
+
+    return bbx1, bby1, bbx2, bby2
+
+def cutmix(source, target, alpha=0.5):
+    """Apply CutMix to a batch of data and targets."""
+    # source: (B, C, H, W)
+    # target: (B, C, H, W)
+    # alpha: float
+    assert source.shape[0] == 2
+    source_res = source.clone()
+    target_res = target.clone()
+
+    # lam = np.random.beta(alpha, alpha)
+    lam = np.random.uniform(0.5, 0.75)
+    bbx1, bby1, bbx2, bby2 = rand_bbox(source.size(), lam)
+    source_res[0][:, bbx1:bbx2, bby1:bby2] = source[1][:, bbx1:bbx2, bby1:bby2] 
+    target_res[0][bbx1:bbx2, bby1:bby2] = target[1][bbx1:bbx2, bby1:bby2]
+  
+
+    return source_res[0].unsqueeze(0), target_res[0].unsqueeze(0)
