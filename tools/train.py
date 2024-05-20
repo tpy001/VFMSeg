@@ -105,7 +105,8 @@ def main():
     cfg.resume = args.resume
 
     # tpy add
-    cfg['model']['work_dir'] = cfg['work_dir']
+    cfg.model.train_cfg.work_dir = cfg.work_dir
+    cfg.model.train_cfg.log_config = cfg.log_config
     
     # build the runner from config
     if "runner_type" not in cfg:

@@ -1,7 +1,11 @@
+_base_ = [
+    'daformer_sepaspp_mitb5.py',
+]
+
 crop_size = (1024, 1024)
 num_classes = 19
 model = dict(
-    type="FrozenBackboneEncoderDecoder",
+    type="FrozenHRDAEncoderDecoder",
     data_preprocessor=dict(
         type="SegDataPreProcessor",
         mean=[123.675, 116.28, 103.53],
@@ -12,6 +16,7 @@ model = dict(
         seg_pad_val=255,
     ),
     backbone=dict(
+        _delete_=True,
         type="DinoVisionTransformer",
         patch_size=16,
         embed_dim=1024,
@@ -31,23 +36,21 @@ model = dict(
         ),
     ),
     decode_head=dict(
-        type='SegformerHead',
-        in_channels=[1024, 1024, 1024, 1024],
-        in_index=[0, 1, 2, 3],
-        channels=256,
-        dropout_ratio=0.1,
-        num_classes=19,
-        norm_cfg=dict(type='BN', requires_grad=True),
-        # norm_cfg=dict(type="GN", num_groups=32),
-        align_corners=False,
-        loss_decode=dict(
-            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
+        type='HRDAHead',
+        single_scale_head='DAFormerHead',
+        attention_classwise=True,
+        hr_loss_weight=0.1,
     ),
-    # model training and testing settings
+    scales=[1, 0.5],
+    hr_crop_size=(512, 512),
+    feature_scale=0.5,
+    crop_coord_divisible=8,
+    hr_slide_inference=True,
     train_cfg=dict(),
     test_cfg=dict(
-        mode="slide",
-        crop_size=(1024, 1024),
-        stride=(682, 682),
-    ),
+        mode='slide',
+        batched_slide=True,
+        stride=[682, 682],
+        crop_size=[1024, 1024]
+        )
 )

@@ -8,7 +8,8 @@
 # ---------------------------------------------------------------
 
 from copy import deepcopy
-
+from mmseg.models.utils  import resize
+from .utils import accuracy
 import torch
 from torch.nn import functional as F
 
@@ -37,7 +38,6 @@ def scale_box(box, scale):
 
 @MODELS.register_module()
 class HRDAHead(BaseDecodeHead):
-
     def __init__(self,
                  single_scale_head,
                  lr_loss_weight=0,
@@ -49,9 +49,14 @@ class HRDAHead(BaseDecodeHead):
                  hr_slide_inference=True,
                  fixed_attention=None,
                  debug_output_attention=False,
+                 decoder_params=None,
                  **kwargs):
+        self.debug = False
+        self.debug_output = dict()
         head_cfg = deepcopy(kwargs)
+        head_cfg['decoder_params']=deepcopy(decoder_params)
         attn_cfg = deepcopy(kwargs)
+        attn_cfg['decoder_params']=deepcopy(decoder_params)
         if single_scale_head == 'DAFormerHead':
             attn_cfg['channels'] = attention_embed_dim
             attn_cfg['decoder_params']['embed_dims'] = attention_embed_dim
@@ -221,9 +226,7 @@ class HRDAHead(BaseDecodeHead):
 
     def forward_train(self,
                       inputs,
-                      img_metas,
                       gt_semantic_seg,
-                      train_cfg,
                       seg_weight=None,
                       return_logits=False):
         """Forward function for training."""
@@ -236,21 +239,49 @@ class HRDAHead(BaseDecodeHead):
         self.reset_crop()
         return losses
 
-    def forward_test(self, inputs, img_metas, test_cfg):
+    def forward_test(self, inputs):
         """Forward function for testing, only ``fused_seg`` is used."""
         return self.forward(inputs)[0]
 
+    def loss(self, inputs, data_samples,train_cfg) -> dict:
+       gt_semantic_seg = [ data_samples[i].gt_sem_seg.data for i in range(len(data_samples))]
+       gt_semantic_seg = torch.stack(gt_semantic_seg)
+       return self.forward_train(inputs, gt_semantic_seg)
+    
+    def cal_losses(self, seg_logit, seg_label, seg_weight=None):
+        """Compute segmentation loss."""
+        loss = dict()
+        seg_logit = resize(
+            input=seg_logit,
+            size=seg_label.shape[2:],
+            mode='bilinear',
+            align_corners=self.align_corners)
+        if self.sampler is not None:
+            seg_weight = self.sampler.sample(seg_logit, seg_label)
+        seg_label = seg_label.squeeze(1)
+
+        self.loss_decode.debug = self.debug
+        loss['loss_seg'] = self.loss_decode(
+            seg_logit,
+            seg_label,
+            weight=seg_weight,
+            ignore_index=self.ignore_index)
+        loss['acc_seg'] = accuracy(seg_logit, seg_label)
+        if self.debug and hasattr(self.loss_decode, 'debug_output'):
+            self.debug_output.update(self.loss_decode.debug_output)
+        return loss
+    
     def losses(self, seg_logit, seg_label, seg_weight=None):
         """Compute losses."""
         fused_seg, lr_seg, hr_seg = seg_logit
-        loss = super(HRDAHead, self).losses(fused_seg, seg_label, seg_weight)
+        loss = self.cal_losses(fused_seg, seg_label, seg_weight)
         if self.hr_loss_weight == 0 and self.lr_loss_weight == 0:
             return loss
 
         if self.lr_loss_weight > 0:
             loss.update(
                 add_prefix(
-                    super(HRDAHead, self).losses(lr_seg, seg_label,
+                    self.cal_losses(lr_seg, seg_label,
                                                  seg_weight), 'lr'))
         if self.hr_loss_weight > 0 and self.enable_hr_crop:
             cropped_seg_label = crop(seg_label, self.hr_crop_box)
@@ -263,12 +294,12 @@ class HRDAHead(BaseDecodeHead):
                     cropped_seg_label.squeeze(1).detach().cpu().numpy()
             loss.update(
                 add_prefix(
-                    super(HRDAHead, self).losses(hr_seg, cropped_seg_label,
+                    self.cal_losses(hr_seg, cropped_seg_label,
                                                  cropped_seg_weight), 'hr'))
         elif self.hr_loss_weight > 0:
             loss.update(
                 add_prefix(
-                    super(HRDAHead, self).losses(hr_seg, seg_label,
+                    self.cal_losses(hr_seg, seg_label,
                                                  seg_weight), 'hr'))
         loss['loss_seg'] *= (1 - self.lr_loss_weight - self.hr_loss_weight)
         if self.lr_loss_weight > 0:
@@ -284,3 +315,4 @@ class HRDAHead(BaseDecodeHead):
             self.debug_output.pop('Seg. GT', None)
 
         return loss
+
