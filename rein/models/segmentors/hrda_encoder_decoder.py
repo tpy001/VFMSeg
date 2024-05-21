@@ -18,6 +18,7 @@ from .frozen_encoder_decoder import detach_everything
 from mmseg.models.utils  import resize
 from mmseg.registry import MODELS
 from mmseg.models.segmentors import EncoderDecoder
+import torch.nn.functional as F
 
 
 
@@ -181,6 +182,51 @@ class HRDAEncoderDecoder(EncoderDecoder):
             self.debug_output = self.decode_head.debug_output
         return out
 
+    def slide_inference(self, img: Tensor,img_meta: List[dict]) -> Tensor:
+        batched_slide = self.test_cfg.get('batched_slide', False)
+        if not batched_slide:
+            return super().slide_inference(img, img_meta)
+        else:
+            h_stride, w_stride = self.test_cfg.stride
+            h_crop, w_crop = self.test_cfg.crop_size
+            batch_size, _, h_img, w_img = img.size()
+            out_channels = self.out_channels
+            h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
+            w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
+            preds = img.new_zeros((batch_size, out_channels, h_img, w_img))
+            count_mat = img.new_zeros((batch_size, 1, h_img, w_img))
+            crop_imgs, crops = [], []
+            for h_idx in range(h_grids):
+                for w_idx in range(w_grids):
+                    y1 = h_idx * h_stride
+                    x1 = w_idx * w_stride
+                    y2 = min(y1 + h_crop, h_img)
+                    x2 = min(x1 + w_crop, w_img)
+                    y1 = max(y2 - h_crop, 0)
+                    x1 = max(x2 - w_crop, 0)
+                    crop_img = img[:, :, y1:y2, x1:x2]
+                    crop_imgs.append(crop_img)
+                    crops.append((y1, y2, x1, x2))
+            crop_imgs = torch.cat(crop_imgs, dim=0)
+            # img_meta[0]['img_shape'] = crop_img.shape[2:]
+            crop_seg_logits = self.encode_decode(crop_imgs, img_meta) # img_meta没用到
+            for i in range(len(crops)):
+                y1, y2, x1, x2 = crops[i]
+                crop_seg_logit = \
+                    crop_seg_logits[i * batch_size:(i + 1) * batch_size]
+                preds += F.pad(crop_seg_logit,
+                            (int(x1), int(preds.shape[3] - x2), int(y1),
+                                int(preds.shape[2] - y2)))
+
+                count_mat[:, :, y1:y2, x1:x2] += 1
+            assert (count_mat == 0).sum() == 0
+            if torch.onnx.is_in_onnx_export():
+                # cast count_mat to constant while exporting to ONNX
+                count_mat = torch.from_numpy(
+                    count_mat.cpu().detach().numpy()).to(device=img.device)
+            preds = preds / count_mat
+            return preds 
+    
     def encode_decode(self, img, img_metas, upscale_pred=True):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
