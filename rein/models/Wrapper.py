@@ -16,8 +16,14 @@ class SegmentWrapper(BaseSegmentor):
         self.log_config = train_cfg['log_config']
   
         self.model = MODELS.build(model_cfg)
+        self.work_dir = train_cfg['work_dir']
+        self.debug_interval = self.log_config['img_interval']
 
-    def get_label(data_samples: SampleList):
+        self.means = torch.tensor(model_cfg['data_preprocessor'].mean)
+        self.stds = torch.tensor(model_cfg['data_preprocessor'].std)
+        self.log_iter = 0
+
+    def get_label(self,data_samples: SampleList):
         label = [ data_samples[i].gt_sem_seg.data for i in range(len(data_samples))]
         return torch.stack(label)
 
