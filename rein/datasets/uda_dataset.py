@@ -104,7 +104,7 @@ class DGDataset(object):
         if self.rcs_enabled:
             return self.get_rare_class_sample()
         else:
-            return self.source[idx]
+            return self.source[ idx % len(self.source) ]
 
     def __len__(self):
         return len(self.source) * len(self.target)

@@ -148,6 +148,14 @@ class HRDAHead(BaseDecodeHead):
             return self.head(inp)
 
     def get_scale_attention(self, inp):
+        '''batchsize = inp[0].shape[0]
+        channel = 19
+        h,w = inp[0].shape[2:]
+        return torch.ones((batchsize, channel, h, w),requires_grad=False).to(inp[0].device)
+    
+        # return torch.ones_like(torch.sigmoid(self.scale_attention(inp)))
+       '''
+        
         if self.scale_attention is not None:
             att = torch.sigmoid(self.scale_attention(inp))
         else:

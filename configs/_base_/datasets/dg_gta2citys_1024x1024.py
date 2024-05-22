@@ -18,7 +18,7 @@ dg_dataset_val = {{_base_.val_cityscapes}}
 
 train_dataloader = dict(
     batch_size=2,
-    num_workers=2,
+    num_workers=4,
     persistent_workers=True,
     pin_memory=True,
     sampler=dict(type="InfiniteSampler", shuffle=True),
