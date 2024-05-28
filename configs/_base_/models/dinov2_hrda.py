@@ -45,12 +45,12 @@ model = dict(
     hr_crop_size=(512, 512),
     feature_scale=0.5,
     crop_coord_divisible=8,
-    hr_slide_inference=False,   # no improvement hardlly, both speed and acc 
+    hr_slide_inference=False,   
     train_cfg=dict(),
     test_cfg=dict(
         # _delete_=True,
         mode='slide',
-        batched_slide=True,
+        batched_slide=False, # no improvement hardlly, both speed and acc 
         stride=[682, 682],
         crop_size=[1024, 1024]
         )

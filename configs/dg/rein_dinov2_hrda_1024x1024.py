@@ -10,6 +10,9 @@ base_model_cfg = deepcopy({{_base_.model}})
 model = dict(
     _delete_=True,
     type="DomainGeneral",
+    blur=True,
+    color_jitter_strength=0.2,
+    color_jitter_probability=0.2,
     model_cfg=base_model_cfg,
     train_cfg=dict()
 )
