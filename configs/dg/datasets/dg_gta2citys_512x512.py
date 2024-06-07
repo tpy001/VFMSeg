@@ -1,6 +1,6 @@
 _base_ = [
-    "./gta_1024x1024.py",
-    "./cityscapes_1024x1024.py",
+    "../../_base_/datasets/gta_512x512.py",
+    "../../_base_/datasets/cityscapes_512x512.py",
 ]
 
 dg_dataset_train = dict(
@@ -9,7 +9,7 @@ dg_dataset_train = dict(
     target = {{_base_.train_cityscapes}},
     rare_class_sampling=dict(
         class_temp=0.01,
-        min_crop_ratio=2,
+        min_crop_ratio=0.5,
         min_pixels=3000,    
     )
 )

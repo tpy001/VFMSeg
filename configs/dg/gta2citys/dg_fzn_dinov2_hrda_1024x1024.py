@@ -1,18 +1,18 @@
 from copy import deepcopy
 # dataset config
 _base_ = [
-    "../_base_/datasets/dg_gta2citys_1024x1024.py",
-    "../_base_/default_runtime.py",
-    "../_base_/models/dinov2_hrda.py",
+    "../datasets/dg_gta2citys_1024x1024.py",
+    "../../_base_/default_runtime.py",
+    "../../_base_/models/dinov2_hrda_frozen.py",
 ]
 
-base_model_cfg = deepcopy({{_base_.model}})
+'''base_model_cfg = deepcopy({{_base_.model}})
 model = dict(
     _delete_=True,
     type="DomainGeneral",
     model_cfg=base_model_cfg,
     train_cfg=dict()
-)
+)'''
 
 embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
 optim_wrapper = dict(

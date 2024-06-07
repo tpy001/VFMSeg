@@ -1,7 +1,7 @@
 crop_size = (512, 512)
 num_classes = 19
 model = dict(
-    type="EncoderDecoder",
+    type="FrozenBackboneEncoderDecoder",
     data_preprocessor=dict(
         type="SegDataPreProcessor",
         mean=[123.675, 116.28, 103.53],

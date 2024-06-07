@@ -1,9 +1,10 @@
 # dataset config
 _base_ = [
-    "../_base_/datasets/dg_gta2citys_1024x1024.py",
-    "../_base_/default_runtime.py",
-    "../_base_/models/dinov2_hrda.py",
+    "../datasets/dg_gta2citys_512x512.py",
+    "../../_base_/default_runtime.py",
+    "../../_base_/models/dinov2_SegFormer_frozen.py",
 ]
+
 
 embed_multi = dict(lr_mult=1.0, decay_mult=0.0)
 optim_wrapper = dict(
@@ -35,9 +36,8 @@ default_hooks = dict(
     logger=dict(type="LoggerHook", interval=50, log_metric_by_epoch=False),
     param_scheduler=dict(type="ParamSchedulerHook"),
     checkpoint=dict(
-        # type="CheckpointHook", by_epoch=False, interval=4000, max_keep_ckpts=3
-        type="CheckpointHook", by_epoch=False, save_best='citys_mIoU',interval=40000
+        type="CheckpointHook", by_epoch=False, interval=4000, save_best='citys_mIoU',max_keep_ckpts=3
     ),
     sampler_seed=dict(type="DistSamplerSeedHook"),
-    # visualization=dict(type="SegVisualizationHook"),
+    visualization=dict(type="SegVisualizationHook"),
 )

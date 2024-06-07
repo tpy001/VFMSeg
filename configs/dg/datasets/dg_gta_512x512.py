@@ -1,6 +1,8 @@
 _base_ = [
-    "./gta_512x512.py",
-    "./cityscapes_512x512.py",
+    "../../_base_/datasets/gta_512x512.py",
+    "../../_base_/datasets/bdd100k_512x512.py",
+    "../../_base_/datasets/cityscapes_512x512.py",
+    "../../_base_/datasets/mapillary_512x512.py",
 ]
 train_dataloader = dict(
     batch_size=2,
@@ -19,11 +21,13 @@ val_dataloader = dict(
         type="ConcatDataset",
         datasets=[
             {{_base_.val_cityscapes}},
+            {{_base_.val_bdd}},
+            {{_base_.val_mapillary}},
         ],
     ),
 )
 test_dataloader = val_dataloader
 val_evaluator = dict(
-    type="DGIoUMetric", iou_metrics=["mIoU"], dataset_keys=["citys"]
+    type="DGIoUMetric", iou_metrics=["mIoU"], dataset_keys=["citys", "map", "bdd"]
 )
 test_evaluator=val_evaluator

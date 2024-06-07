@@ -1,15 +1,16 @@
 # dataset config
 _base_ = [
-    "../_base_/datasets/dg_gta_512x512.py",
-    "../_base_/default_runtime.py",
-    "../_base_/models/dinov2_mask2former.py"
+    "./_base_/datasets/dg_gta_512x512.py",
+    # "./_base_/datasets/dg_gta2citys.py",
+    "./_base_/default_runtime.py",
+    "./_base_/models/rein_dinov2_mask2former.py"
 ]
 train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="LoadAnnotations"),
     dict(
         type="RandomChoiceResize",
-        scales=[int(512 * x * 0.1) for x in range(5, 21)],
+        scales=[int(512 * x * 0.1) for x in range(5, 21)],  # tpy trick
         resize_type="ResizeShortestEdge",
         max_size=2048,
     ),
@@ -19,6 +20,8 @@ train_pipeline = [
     dict(type="PackSegInputs"),
 ]
 train_dataloader = dict(batch_size=4, dataset=dict(pipeline=train_pipeline))
+
+
 
 # AdamW optimizer, no weight decay for position embedding & layer norm
 # in backbone
