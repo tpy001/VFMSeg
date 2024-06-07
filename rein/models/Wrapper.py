@@ -57,3 +57,29 @@ class SegmentWrapper(BaseSegmentor):
         """
         return self.model._forward(inputs, data_samples)
     
+    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict,
+                              missing_keys, unexpected_keys, error_msgs):
+
+        if any(key.startswith("model.") for key in state_dict.keys()):
+            new_dict = {}
+            for key, value in state_dict.items():
+                if key.startswith("model."):
+                    new_key = key.replace("model.", "")
+                else:
+                    new_key = key
+                new_dict[new_key] = value
+
+            dino_dict = {}
+            dino_path = "/data3/tangpeiyuan/code/Rein-train/checkpoints/dinov2_converted.pth"
+            dino_state_dict = torch.load(dino_path, map_location='cpu')
+            for key, value in dino_state_dict.items():
+                new_key = "backbone." + key
+                dino_dict[new_key] = value
+
+            new_dict.update(dino_dict)
+        
+            self.model.load_state_dict(new_dict, strict=strict)
+        else:
+            return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict,
+                                      missing_keys, unexpected_keys, error_msgs)
+    
