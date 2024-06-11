@@ -101,8 +101,8 @@ class DomainGeneral(SegmentWrapper):
         self.means = self.means.to(inputs.device)
         self.stds = self.stds.to(inputs.device)
 
-        enable_mask_loss = True
-        return_masked_img = True
+        enable_mask_loss = False
+        return_masked_img = False
         src_log_var = self.source_loss(inputs, data_samples)
         if enable_mask_loss:
             acc = src_log_var['decode.acc_seg'] / 100.0

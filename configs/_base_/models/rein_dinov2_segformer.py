@@ -1,5 +1,6 @@
 crop_size = (512, 512)
 num_classes = 19
+embed_dims = 1024
 model = dict(
     type="EncoderDecoder",
     data_preprocessor=dict(
@@ -16,14 +17,14 @@ model = dict(
         reins_config=dict(
             type="LoRAReins",
             token_length=100,
-            embed_dims=1024,
+            embed_dims=embed_dims,
             num_layers=24,
             patch_size=16,
             link_token_to_query=False,
             lora_dim=16,
         ),
         patch_size=16,
-        embed_dim=1024,
+        embed_dim=embed_dims,
         depth=24,
         num_heads=16,
         mlp_ratio=4,
@@ -41,7 +42,7 @@ model = dict(
     ),
     decode_head=dict(
         type='SegformerHead',
-        in_channels=[1024, 1024, 1024, 1024],
+        in_channels=[embed_dims, embed_dims, embed_dims, embed_dims],
         in_index=[0, 1, 2, 3],
         channels=256,
         dropout_ratio=0.1,

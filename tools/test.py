@@ -113,6 +113,11 @@ def main():
         )
     cfg.work_dir = cfg.work_dir + "_test"
     cfg.load_from = args.checkpoint
+
+    # tpy add
+    cfg.model.train_cfg.work_dir = cfg.work_dir
+    cfg.model.train_cfg.log_config = cfg.log_config
+    
     if args.backbone:
         custom_hooks = getattr(cfg, "custom_hooks", [])
         custom_hooks.append(

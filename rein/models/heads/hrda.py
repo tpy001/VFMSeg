@@ -69,7 +69,8 @@ class HRDAHead(BaseDecodeHead):
                     ['norm_cfg'])
             kwargs['init_cfg'] = None
             kwargs['input_transform'] = 'multiple_select'
-            self.os = 4
+            # self.os = 4
+            self.os = 16
         elif single_scale_head == 'DLV2Head':
             kwargs['init_cfg'] = None
             kwargs.pop('dilations')

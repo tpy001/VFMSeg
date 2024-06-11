@@ -101,6 +101,8 @@ class HRDAEncoderDecoder(EncoderDecoder):
         self.crop_coord_divisible = crop_coord_divisible
         self.blur_hr_crop = blur_hr_crop
 
+        self.orginal_slide_inference = self.test_cfg.get('orginal_slide_inference', False)
+
     def extract_unscaled_feat(self, img):
         x = self.backbone(img)
         if self.with_neck:
@@ -230,21 +232,25 @@ class HRDAEncoderDecoder(EncoderDecoder):
     def encode_decode(self, img, img_metas, upscale_pred=True):
         """Encode images with backbone and decode into a semantic segmentation
         map of the same size as input."""
-        mres_feats = []
-        self.decode_head.debug_output = {}
-        for i, s in enumerate(self.scales):
-            if s == 1 and self.blur_hr_crop:
-                scaled_img = self.blur_downup(img)
-            else:
-                scaled_img = self.resize(img, s)
-            if i >= 1 and self.hr_slide_inference:
-                mres_feats.append(self.extract_slide_feat(scaled_img))
-            else:
-                mres_feats.append(self.extract_unscaled_feat(scaled_img))
-            if self.decode_head.debug:
-                self.decode_head.debug_output[f'Img {i} Scale {s}'] = \
-                    scaled_img.detach()
-        out = self.decode_head.forward_test(mres_feats)
+        if self.orginal_slide_inference:
+            feat = self.extract_unscaled_feat(img)
+            out =  self.decode_head.head(feat)
+        else:
+            mres_feats = []
+            self.decode_head.debug_output = {}
+            for i, s in enumerate(self.scales):
+                if s == 1 and self.blur_hr_crop:
+                    scaled_img = self.blur_downup(img)
+                else:
+                    scaled_img = self.resize(img, s)
+                if i >= 1 and self.hr_slide_inference:
+                    mres_feats.append(self.extract_slide_feat(scaled_img))
+                else:
+                    mres_feats.append(self.extract_unscaled_feat(scaled_img))
+                if self.decode_head.debug:
+                    self.decode_head.debug_output[f'Img {i} Scale {s}'] = \
+                        scaled_img.detach()
+            out = self.decode_head.forward_test(mres_feats)
         if upscale_pred:
             out = resize(
                 input=out,
