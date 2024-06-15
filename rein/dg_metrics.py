@@ -10,6 +10,17 @@ from mmseg.evaluation.metrics.iou_metric import IoUMetric
 from collections import defaultdict
 
 
+
+def id2color(label_pred):
+    from mmseg.datasets import CityscapesDataset
+    PALETTE= CityscapesDataset.METAINFO['palette']
+
+    rgb = np.zeros((label_pred.shape[0], label_pred.shape[1], 3), dtype=np.uint8)
+    for index in range(len(PALETTE)):
+        mask = label_pred == index
+        rgb[mask] = PALETTE[index]
+    return rgb
+
 @METRICS.register_module()
 class DGIoUMetric(IoUMetric):
     def __init__(self, dataset_keys=[], mean_used_keys=[], **kwargs):
@@ -55,6 +66,8 @@ class DGIoUMetric(IoUMetric):
                 # That is because we set reduce_zero_label=True.
                 if data_sample.get("reduce_zero_label", False):
                     output_mask = output_mask + 1
+
+                output_mask = id2color(output_mask)
                 output = Image.fromarray(output_mask.astype(np.uint8))
                 output.save(png_filename)
 
