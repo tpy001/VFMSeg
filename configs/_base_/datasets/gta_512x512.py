@@ -5,7 +5,13 @@ gta_crop_size = (512, 512)
 gta_train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="LoadAnnotations"),
-    dict(type="Resize", scale=(1280, 720)),
+    # dict(type="Resize", scale=(1280, 720)),
+    dict(
+        type="RandomChoiceResize",
+        scales=[int(512 * x * 0.1) for x in range(5, 21)],
+        resize_type="ResizeShortestEdge",
+        max_size=2048,
+    ),
     dict(type="RandomCrop", crop_size=gta_crop_size, cat_max_ratio=0.75),
     dict(type="RandomFlip", prob=0.5),
     dict(type="PhotoMetricDistortion"),

@@ -23,4 +23,6 @@ default_hooks = dict(
     ),
     sampler_seed=dict(type="DistSamplerSeedHook"),
     visualization=dict(type="SegVisualizationHook"),
+    # visualization=dict(type="SegVisualizationHook",draw=True, interval=1), 每隔一段时间保存测试的结果
+
 )
