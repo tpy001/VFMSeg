@@ -1,6 +1,4 @@
-_base_ = [
-    'daformer_sepaspp_mitb5.py',
-]
+
 crop_size = (1024, 1024)
 num_classes = 19
 model = dict(
@@ -15,7 +13,6 @@ model = dict(
         seg_pad_val=255,
     ),
     backbone=dict(
-        _delete_=True,
         type="ReinsDinoVisionTransformer",
         reins_config=dict(
             type="LoRAReins",
@@ -44,21 +41,25 @@ model = dict(
         ),
     ),
     decode_head=dict(
-        type='HRDAHead',
-        single_scale_head='DAFormerHead',
-        attention_classwise=True,
-        hr_loss_weight=0.1,
+        type='DINOhead',
+        in_channels=[1024, 1024, 1024, 1024],
+        in_index=[0, 1, 2, 3],
+        channels=256,
+        dropout_ratio=0.1,
+        num_classes=19,
+        norm_cfg=dict(type="GN", num_groups=32),
+        align_corners=False,
+        loss_decode=dict(
+            type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
     ),
     scales=[1, 0.5],
     hr_crop_size=(512, 512),
     feature_scale=0.5,
-    crop_coord_divisible=8,
-    hr_slide_inference=True,   
+    crop_coord_divisible=32,
     train_cfg=dict(),
     test_cfg=dict(
-        orginal_slide_inference = True,
         mode='slide',
-        stride=[341, 341],
+        stride=[320, 320],
         crop_size=[512, 512]
         )
 )

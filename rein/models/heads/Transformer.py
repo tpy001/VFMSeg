@@ -250,6 +250,9 @@ class SpatialTransformer(nn.Module):
         x = self.norm(x)
         x = self.proj_in(x)
         x = rearrange(x, 'b c h w -> b (h w) c')
+        if context is not None:
+            # context = self.proj_in_context(context)
+            context = rearrange(context, 'b c h w -> b (h w) c')
         for block in self.transformer_blocks:
             x = block(x, context=context)
         x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
