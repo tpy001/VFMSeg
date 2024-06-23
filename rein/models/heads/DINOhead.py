@@ -40,19 +40,21 @@ class DINOhead(SegformerHead):
                                                      dropout=dropout, 
                                                      context_dim=context_dim)
         
-        self.hr_crop_box = None
+        #self.hr_crop_box = None
 
-    def set_crop_box(self,box):
-        self.hr_crop_box = box
+    #def set_crop_box(self,box):
+        #self.hr_crop_box = box
 
-    def loss(self, inputs, seg_label,seg_logits=None,return_logits=False) -> dict:
-        seg_logits = self.forward(inputs,seg_logits)
+    def loss(self, inputs, seg_label,context=None,return_logits=False) -> dict:
+        # inputs: 64x64
+        # seg_label: 512x512
+        # context: 64x64
+        seg_logits = self.forward(inputs,context)
         seg_logits = resize(
             input=seg_logits,
             size=seg_label.shape[2:],
             mode='bilinear',
             align_corners=self.align_corners)
-        # losses = self.loss_by_feat(seg_logits, batch_data_samples)
 
         losses = dict()
         if self.sampler is not None:
@@ -88,7 +90,9 @@ class DINOhead(SegformerHead):
             return losses
     
     def forward(self, inputs, seg_logits = None):
-        # shape ofs seg_logits: [32x32]
+        # inputs: 64x64
+        # seg_label: 512x512
+        # context: 64x64
         if seg_logits is None:
             return super().forward(inputs)
         else:
@@ -113,13 +117,7 @@ class DINOhead(SegformerHead):
             out = self.cls_seg(out)
 
             return out
-        
-    def resize_box(self,ratio):
-        crop_box = []
-        for i in range(len(self.hr_crop_box)):
-            assert self.hr_crop_box[i] % ratio == 0
-            crop_box.append(self.hr_crop_box[i] // ratio)
-        return crop_box
+
         
 
 

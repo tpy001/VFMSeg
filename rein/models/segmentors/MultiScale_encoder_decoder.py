@@ -103,6 +103,8 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
 
         self.means = self.data_preprocessor.mean
         self.stds = self.data_preprocessor.std
+
+        self.hr_crop_box = None
         
 
     def extract_unscaled_feat(self, img):
@@ -111,44 +113,11 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
             x = self.neck(x)
         return x
 
-    '''def extract_feat(self, img):
-        if self.feature_scale in self.feature_scale_all_strs:
-            mres_feats = []
-            for i, s in enumerate(self.scales):
-                scaled_img = self.resize(img, s)
-                if self.crop_size is not None and i >= 1:
-                    scaled_img = crop(
-                        scaled_img, MultiScaleEncoderDecoder.last_train_crop_box[i])
-                mres_feats.append(self.extract_unscaled_feat(scaled_img))
-            return mres_feats
-        else:
-            scaled_img = self.resize(img, self.feature_scale)
-            return self.extract_unscaled_feat(scaled_img)'''
-
-
-    
-    '''def encode_decode(self, img, img_metas, upscale_pred=True):
-        mres_feats = []
-        self.decode_head.debug_output = {}
-        for i, s in enumerate(self.scales):
-            scaled_img = self.resize(img, s)
-            mres_feats.append(self.extract_unscaled_feat(scaled_img))
-            if self.decode_head.debug:
-                self.decode_head.debug_output[f'Img {i} Scale {s}'] = \
-                    scaled_img.detach()
-        out = self.decode_head.forward_test(mres_feats)
-        if upscale_pred:
-            out = resize(
-                input=out,
-                size=img.shape[2:],
-                mode='bilinear',
-                align_corners=self.align_corners)
-        return out'''
 
     def _forward_train_features(self, img):
         mres_feats = []
         assert len(self.scales) <= 2, 'Only up to 2 scales are supported.'
-        for i, s in enumerate(self.scales):
+        for i, s in enumerate(self.scales):    # scales: [0.5,1.0]
             scaled_img = resize(
                 input=img,
                 scale_factor=s,
@@ -158,7 +127,7 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
                 crop_box = get_crop_bbox(*scaled_img.shape[-2:],
                                          self.crop_size,
                                          self.crop_coord_divisible)
-                self.decode_head.set_crop_box(crop_box) # save the crop box
+                self.hr_crop_box = crop_box # save the crop box
                 scaled_img = crop(scaled_img, crop_box)
             mres_feats.append(self.extract_unscaled_feat(scaled_img))
         return mres_feats
@@ -166,6 +135,30 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
     def loss(self, inputs: Tensor, data_samples: SampleList) -> dict:
         losses = self.forward_train(inputs,data_samples)
         return losses
+
+
+    def get_lr_seg(self,gt_seg):
+        # gt_seg: 1024,1024
+        # lr_seg: 512,512
+        return resize(gt_seg.float(),
+                           scale_factor=0.5,
+                           mode='nearest').long() # 512,512
+    
+    def get_hr_seg(self,gt_seg):
+        # gt_seg: 1024,1024
+        # hr_seg: 512,512
+        return crop(gt_seg,self.hr_crop_box) # 512,512
+    
+    def get_context(self,seg_logits):
+        # seg_logits: 512,512
+        # context:64,64
+        context = seg_logits.detach()    # 512x512
+        crop_box = self.resize_box(ratio=2)  
+        context = crop(context,crop_box) # 256x256
+        context = resize(context,scale_factor=1/4, mode='bilinear', align_corners=self.align_corners) # 64x64
+
+        return context
+
 
     def forward_train(self,
                       img,
@@ -176,23 +169,19 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
         losses = dict()
 
         mres_feats = self._forward_train_features(img)
-        lr_feats = mres_feats[0]
-        hr_feats = mres_feats[1]
+        lr_feats = mres_feats[0] # 64x64
+        hr_feats = mres_feats[1] # 64x64
         
         seg_label = self.decode_head._stack_batch_gt(data_samples)
 
-        lr_gt_seg = resize(seg_label.float(),
-                           scale_factor=0.5,
-                           mode='nearest').long()
-        hr_gt_seg = crop(seg_label,self.decode_head.hr_crop_box)
+        lr_gt_seg = self.get_lr_seg(seg_label) # 512,512
+        hr_gt_seg = self.get_hr_seg(seg_label) # 512,512
 
-        loss_decode_lr,seg_logits = self.decode_head.loss(lr_feats, lr_gt_seg,return_logits=True)
+        loss_decode_lr,seg_logits = self.decode_head.loss(lr_feats, lr_gt_seg,return_logits=True) # seg_logits: 512x512
         losses.update(add_prefix(loss_decode_lr, 'decode_lr'))
 
-        crop_box2 = (item//2 for item in self.decode_head.hr_crop_box)
-        context = seg_logits.detach()
-        context = crop(context,crop_box2)
-        context = resize(context,scale_factor=1/8, mode='bilinear', align_corners=self.align_corners)
+        context = self.get_context(seg_logits) # 64x64
+
 
         loss_decode_hr = self.decode_head.loss(hr_feats, hr_gt_seg,context)
         losses.update(add_prefix(loss_decode_hr, 'decode_hr'))
@@ -206,36 +195,33 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
         self.means = self.means.to(img.device)
         self.stds = self.stds.to(img.device)
 
-        gt_sem_seg = torch.stack([item.gt_sem_seg.data for item in data_samples ])
-        crop_box = get_crop_bbox(*img.shape[-2:],self.crop_size,self.crop_coord_divisible)
-        lr_img = resize(
-                input=img,
-                scale_factor=0.5,
-                mode='bilinear',
-                align_corners=self.align_corners)
-        lr_seg = resize(gt_sem_seg.float(),
-                        scale_factor=0.5,
-                        mode='nearest').int()
-        hr_img = crop(img, crop_box)
-        hr_seg = crop(gt_sem_seg, crop_box)
-
         with torch.no_grad():
-            lr_feat = self.extract_unscaled_feat(lr_img)
-            lr_seg_logits =  self.decode_head(lr_feat)
-            lr_pred = resize(lr_seg_logits,size = lr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners)
-            lr_pred = lr_pred.argmax(dim=1, keepdim=True).squeeze()
-
-            crop_box2 = [item// 32 for item in crop_box]
-            lr_logits_upsample = crop(lr_seg_logits,crop_box2)
-            lr_logits_upsample = resize(lr_logits_upsample,scale_factor=2, mode='bilinear', align_corners=self.align_corners)
-
-            lr_pred_upsample = resize(lr_logits_upsample,size=hr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners).argmax(dim=1, keepdim=True).squeeze()
-
-            hr_feat = self.extract_unscaled_feat(hr_img)
-            hr_pred =  resize(self.decode_head(hr_feat),size=hr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners)
-            hr_pred = hr_pred.argmax(dim=1, keepdim=True).squeeze()
+            mres_feats = self._forward_train_features(img)
+            lr_feats = mres_feats[0] # 64x64
+            hr_feats = mres_feats[1] # 64x64
             
-            hr_pred_refine = resize(self.decode_head(hr_feat,lr_logits_upsample),size=hr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners)
+            seg_label = self.decode_head._stack_batch_gt(data_samples)
+
+            lr_seg = self.get_lr_seg(seg_label) # 512,512
+            hr_seg = self.get_hr_seg(seg_label) # 512,512
+            lr_img = resize(img,scale_factor=0.5, mode='bilinear', align_corners=self.align_corners)
+            hr_img = crop(img,self.hr_crop_box)
+
+
+            lr_seg_logits = self.decode_head(lr_feats) # seg_logits: 64x64
+            lr_seg_logits = resize(lr_seg_logits,size = lr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners) # 512x512
+            lr_pred = lr_seg_logits.argmax(dim=1, keepdim=True).squeeze()  # 512x512
+
+            crop_box2 = [item//2 for item in self.hr_crop_box]
+            lr_seg_logits_upsample = crop(lr_seg_logits,crop_box2) # 256x256
+            lr_seg_logits_upsample = resize(lr_seg_logits_upsample,size=hr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners)
+            lr_pred_upsample = lr_seg_logits_upsample.argmax(dim=1, keepdim=True).squeeze()
+            
+            hr_pred =  resize(self.decode_head(hr_feats),size=hr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners) # 512x512
+            hr_pred = hr_pred.argmax(dim=1, keepdim=True).squeeze()
+
+            context = self.get_context(lr_seg_logits) # 64x64
+            hr_pred_refine = resize(self.decode_head(hr_feats,context),size=hr_seg.shape[-2:], mode='bilinear', align_corners=self.align_corners)
             hr_pred_refine = hr_pred_refine.argmax(dim=1, keepdim=True).squeeze()
 
         out_dir = os.path.join(self.train_cfg.work_dir,'class_mix_debug')
@@ -264,17 +250,6 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
             subplotimg(axs[1][4],hr_seg[j],'hr seg gt',cmap='cityscapes')
 
 
-            '''# 显示每个pseudo的softmax的概率
-            subplotimg(axs[3][0],pseudo_prob[j] ,'Pselabel SoftmaxPro',cmap='hot', interpolation='nearest')
-            # 显示大于pseudo域值的像素点有哪些
-            subplotimg(axs[3][1],ps_large_p[j].int() ,'Pselabel mask',cmap='gray')
-            # 计算熵
-            log_probabilities = torch.log2(ema_softmax[j])
-            entropy_map = -torch.sum(ema_softmax[j] * log_probabilities, dim=0)
-            subplotimg(axs[3][2],entropy_map ,'Pseudo label entropy',cmap='hot')'''
-
-
-            # 显示伪标签的熵
             for ax in axs.flat:
                 ax.axis('off')
             plt.savefig(
@@ -300,9 +275,11 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
         elif mode == 'hr_slide_inference':
             seg_logits = super(MultiScaleEncoderDecoder,self).slide_inference(inputs,batch_img_metas)
         elif mode == 'ms_slide_inference':
-            inputs_lr = resize(inputs, scale_factor=0.5, mode='bilinear', align_corners=self.align_corners)  # 512,1024
+            # inputs_lr = resize(inputs, scale_factor=0.5, mode='bilinear', align_corners=self.align_corners)  # 512,1024
+            inputs_lr = resize(inputs, size = (512,1024), mode='bilinear', align_corners=self.align_corners)  # 512,1024
+
             lr_seg_logits = super(MultiScaleEncoderDecoder,self).slide_inference(inputs_lr,batch_img_metas) # 512,1024
-            lr_seg_logits = resize(lr_seg_logits, scale_factor=2, mode='bilinear', align_corners=self.align_corners) # 1024,2048
+            lr_seg_logits = resize(lr_seg_logits, size=inputs.shape[-2:], mode='bilinear', align_corners=self.align_corners) # 1024,2048
 
             h_stride, w_stride = self.test_cfg.stride
             h_crop, w_crop = self.test_cfg.crop_size
@@ -324,9 +301,9 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
                     crop_box = (y1,y2, x1,x2)  # 512,512
                     crop_img = crop(inputs,crop_box) # 512,512
                     context = crop(lr_seg_logits, crop_box) # 512,512
-                    context = resize(context, scale_factor=1/16, mode='bilinear', align_corners=self.align_corners) # 32x32
+                    context = resize(context, scale_factor=1/8, mode='bilinear', align_corners=self.align_corners) # 32x32
 
-                    self.decode_head.set_crop_box(crop_box)
+                    self.hr_crop_box = crop_box
                     
                     # with shape [N, C, H, W]
                     crop_seg_logit = self.enc_dec(crop_img, context)
@@ -343,5 +320,12 @@ class MultiScaleEncoderDecoder(EncoderDecoder):
 
 
 
+            
+    def resize_box(self,ratio):
+        crop_box = []
+        for i in range(len(self.hr_crop_box)):
+            assert self.hr_crop_box[i] % ratio == 0
+            crop_box.append(self.hr_crop_box[i] // ratio)
+        return crop_box
         
     
