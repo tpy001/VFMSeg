@@ -329,7 +329,7 @@ class DinoVisionTransformer(BaseModule):
 
     def forward(self, *args, **kwargs):
         ret = self.forward_features(*args, **kwargs)
-        if isinstance(ret[0], torch.Tensor):
+        '''if isinstance(ret[0], torch.Tensor):
             ret[0] = F.interpolate(
                 ret[0], scale_factor=2, mode="bilinear", align_corners=False
             )
@@ -351,5 +351,5 @@ class DinoVisionTransformer(BaseModule):
             )
             ret[0][3] = F.interpolate(
                 ret[0][3], scale_factor=0.5, mode="bilinear", align_corners=False
-            )
+            )'''
         return ret
