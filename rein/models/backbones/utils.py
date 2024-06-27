@@ -56,3 +56,11 @@ def set_train(model: nn.Module, keywords: List[str]):
         for train_name in train_names:
             logger.info(f"set_train----{train_name}")
         first_set_train = False
+
+
+def get_trainable_params(model):
+    param_list = []
+    for name, param in model.named_parameters():
+        if param.requires_grad:
+            param_list.append(name)
+    print(param_list)
