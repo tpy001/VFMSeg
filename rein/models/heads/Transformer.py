@@ -153,19 +153,19 @@ class MemEffAttention(CrossAttention):
         return self.to_out(x)
 
 class BasicTransformerBlock(nn.Module):
-    def __init__(self, dim, n_heads, d_head, dropout=0., context_dim=None, gated_ff=True):
+    def __init__(self, query_dim, n_heads, d_head, dropout=0., context_dim=None, gated_ff=True):
         super().__init__()
-        self.attn1 = MemEffAttention(query_dim=dim, heads=n_heads, dim_head=d_head, dropout=dropout)  # is a self-attention
-        self.ff = FeedForward(dim, dropout=dropout, glu=gated_ff)
-        self.attn2 = MemEffAttention(query_dim=dim, context_dim=context_dim,
+        self.attn1 = MemEffAttention(query_dim=query_dim, heads=n_heads, dim_head=d_head, dropout=dropout)  # is a self-attention
+        self.ff = FeedForward(query_dim, dropout=dropout, glu=gated_ff)
+        self.attn2 = MemEffAttention(query_dim=query_dim, context_dim=context_dim,
                                     heads=n_heads, dim_head=d_head, dropout=dropout)  # is self-attn if context is none
-        self.norm1 = nn.LayerNorm(dim)
-        self.norm2 = nn.LayerNorm(dim)
-        self.norm3 = nn.LayerNorm(dim)
+        self.norm1 = nn.LayerNorm(query_dim)
+        self.norm2 = nn.LayerNorm(query_dim)
+        self.norm3 = nn.LayerNorm(query_dim)
 
         self.output_upscaling = nn.Sequential(
             nn.ConvTranspose2d(self.dim, self.dim//2, kernel_size=2, stride=2),
-            nn.LayerNorm(dim),
+            nn.LayerNorm(query_dim),
             nn.GELU()
         )
 
@@ -179,14 +179,8 @@ class BasicTransformerBlock(nn.Module):
         return self.output_upscaling(x)
 
 
-class SpatialTransformer(nn.Module):
-    """
-    Transformer block for image-like data.
-    First, project the input (aka embedding)
-    and reshape to b, t, d.
-    Then apply standard transformer action.
-    Finally, reshape to image
-    """
+class TransformerDecoder(nn.Module):
+    
     def __init__(self, in_channels, n_heads, d_head,
                  depth=1, dropout=0., context_dim=None):
         super().__init__()
@@ -194,35 +188,19 @@ class SpatialTransformer(nn.Module):
         inner_dim = n_heads * d_head
         self.norm = Normalize(in_channels)
 
-        self.proj_in = nn.Conv2d(in_channels,
-                                 inner_dim,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0)
-
         self.transformer_blocks = nn.ModuleList(
             [BasicTransformerBlock(inner_dim, n_heads, d_head, dropout=dropout, context_dim=context_dim)
-                for d in range(depth)]
+                for _ in range(depth)]
         )
 
-        self.proj_out = zero_module(nn.Conv2d(inner_dim,
-                                              in_channels,
-                                              kernel_size=1,
-                                              stride=1,
-                                              padding=0))
 
-    def forward(self, x, context=None):
-        # note: if no context is given, cross-attention defaults to self-attention
-        b, c, h, w = x.shape
-        x_in = x
+    def forward(self, query, img_feats,seg_logit_embed):
+
+        x = query + seg_logit_embed
         x = self.norm(x)
-        x = self.proj_in(x)
         x = rearrange(x, 'b c h w -> b (h w) c')
-        if context is not None:
-            # context = self.proj_in_context(context)
-            context = rearrange(context, 'b c h w -> b (h w) c')
+        img_feats = rearrange(img_feats, 'b c h w -> b (h w) c')
         for block in self.transformer_blocks:
-            x = block(x, context=context)
-        x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
-        x = self.proj_out(x)
-        return x + x_in
+            x = block(x, img_feats)
+        x = rearrange(x, 'b (h w) c -> b c h w')
+        return x
