@@ -163,6 +163,12 @@ class BasicTransformerBlock(nn.Module):
         self.norm2 = nn.LayerNorm(dim)
         self.norm3 = nn.LayerNorm(dim)
 
+        self.output_upscaling = nn.Sequential(
+            nn.ConvTranspose2d(self.dim, self.dim//2, kernel_size=2, stride=2),
+            nn.LayerNorm(dim),
+            nn.GELU()
+        )
+
     def forward(self, x, context=None):
         return self._forward(x, context)
 
@@ -170,7 +176,7 @@ class BasicTransformerBlock(nn.Module):
         x = self.attn1(self.norm1(x)) + x
         x = self.attn2(self.norm2(x), context=context) + x
         x = self.ff(self.norm3(x)) + x
-        return x
+        return self.output_upscaling(x)
 
 
 class SpatialTransformer(nn.Module):
