@@ -5,8 +5,8 @@ model = dict(
     type="LoraBackboneEncoderDecoder",
     checkpoint='checkpoints/dinov2_converted.pth',
     Lora_config=dict(
-            r=16,
-            lora_alpha=16,
+            r=32,
+            lora_alpha=32,
             target_modules=['qkv'],
             lora_dropout = 0.1
     ),

@@ -1,7 +1,7 @@
 #! /bin/bash
 
-config=configs/dg/gta2citys/dg_fzn_dinov2_Segformer_512x512_bs1x4.py
-gpu_id=7
+config=configs/dg/gta2citys/dg_lora_dinov2_linearhead.py
+gpu_id=1
 
 CUDA_VISIBLE_DEVICES=$gpu_id python3 train.py $config
          
