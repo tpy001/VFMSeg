@@ -4,6 +4,7 @@ from .reins_eva_02 import ReinsEVA2
 from .reins_resnet import ReinsResNetV1c
 from .reins_convnext import ReinsConvNeXt
 from .clip import CLIPVisionTransformer
+from lora_backbone import LoRABackbone
 
 __all__ = [
     "CLIPVisionTransformer",
@@ -12,4 +13,5 @@ __all__ = [
     "ReinsEVA2",
     "ReinsResNetV1c",
     "ReinsConvNeXt",
+    "LoRABackbone"
 ]
