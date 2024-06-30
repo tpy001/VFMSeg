@@ -39,11 +39,6 @@ class DINOhead(SegformerHead):
                                                      depth=depth, 
                                                      dropout=dropout, 
                                                      context_dim=context_dim)
-        
-        #self.hr_crop_box = None
-
-    #def set_crop_box(self,box):
-        #self.hr_crop_box = box
 
     def loss(self, inputs, seg_label,context=None,return_logits=False) -> dict:
         # inputs: 64x64

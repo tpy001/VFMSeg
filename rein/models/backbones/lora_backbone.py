@@ -9,10 +9,10 @@ from mmengine.model import BaseModule
 
 @MODELS.register_module()
 class LoRABackbone(BaseModule):
-    def __init__(self,backbone,checkpoint,Lora_config,**kwargs):
+    def __init__(self,model,checkpoint,Lora_config,**kwargs):
         super().__init__(**kwargs)
 
-        backbone_model = MODELS.build(backbone)
+        backbone_model = MODELS.build(model)
         self.Lora_config = LoraConfig(
                 r=Lora_config['r'],
                 lora_alpha=Lora_config['lora_alpha'],
@@ -39,4 +39,7 @@ class LoRABackbone(BaseModule):
             return super().train(mode)
         set_requires_grad(self.model, ["lora"])
         set_train(self.model, ["lora"])
+
+    def forward(self, x):
+        return self.model(x)
    

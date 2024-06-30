@@ -6,6 +6,8 @@ from torch import nn, einsum
 from einops import rearrange, repeat
 import os
 import warnings
+from mmseg.registry import MODELS
+
 
 XFORMERS_ENABLED = os.environ.get("XFORMERS_DISABLED") is None
 try:
@@ -108,7 +110,7 @@ class CrossAttention(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x, context=None, mask=None):
+    def _forward(self, x, context=None, mask=None):
         h = self.heads
 
         q = self.to_q(x)
@@ -134,9 +136,10 @@ class CrossAttention(nn.Module):
         return self.to_out(out)
 
 class MemEffAttention(CrossAttention):
+
     def forward(self, x, context=None, mask=None):
         if not XFORMERS_AVAILABLE:
-            return super().forward(x)
+            return self._forward(x)
 
         h = self.heads
 
@@ -145,10 +148,10 @@ class MemEffAttention(CrossAttention):
         k = self.to_k(context)
         v = self.to_v(context)
 
-        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
-
+        # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b n h d', h=h), (q, k, v))
         x = memory_efficient_attention(q, k, v)
-        # x = x.reshape([B, N, C])
+        x = rearrange(x, 'b n h d -> b n (h d)', h=h)
 
         return self.to_out(x)
 
@@ -163,11 +166,6 @@ class BasicTransformerBlock(nn.Module):
         self.norm2 = nn.LayerNorm(query_dim)
         self.norm3 = nn.LayerNorm(query_dim)
 
-        self.output_upscaling = nn.Sequential(
-            nn.ConvTranspose2d(self.dim, self.dim//2, kernel_size=2, stride=2),
-            nn.LayerNorm(query_dim),
-            nn.GELU()
-        )
 
     def forward(self, x, context=None):
         return self._forward(x, context)
@@ -176,31 +174,34 @@ class BasicTransformerBlock(nn.Module):
         x = self.attn1(self.norm1(x)) + x
         x = self.attn2(self.norm2(x), context=context) + x
         x = self.ff(self.norm3(x)) + x
-        return self.output_upscaling(x)
+        return x
 
 
+@MODELS.register_module()
 class TransformerDecoder(nn.Module):
     
-    def __init__(self, in_channels, n_heads, d_head,
-                 depth=1, dropout=0., context_dim=None):
+    def __init__(self, query_dim, n_heads, d_head,
+                 depth=1, dropout=0., img_feat_dim=None):
         super().__init__()
-        self.in_channels = in_channels
-        inner_dim = n_heads * d_head
-        self.norm = Normalize(in_channels)
+        self.in_channels = query_dim
+        self.norm = Normalize(query_dim)
 
         self.transformer_blocks = nn.ModuleList(
-            [BasicTransformerBlock(inner_dim, n_heads, d_head, dropout=dropout, context_dim=context_dim)
+            [BasicTransformerBlock(query_dim, n_heads, d_head, dropout=dropout, context_dim=img_feat_dim)
                 for _ in range(depth)]
         )
 
 
-    def forward(self, query, img_feats,seg_logit_embed):
-
-        x = query + seg_logit_embed
+    def forward(self, img_feats,seg_logit_embed,query=None):
+        b, c, h, w = seg_logit_embed.shape
+        if query is not None:
+            x = torch.cat(query, seg_logit_embed,dim=1)
+        else:
+            x = seg_logit_embed
         x = self.norm(x)
         x = rearrange(x, 'b c h w -> b (h w) c')
         img_feats = rearrange(img_feats, 'b c h w -> b (h w) c')
         for block in self.transformer_blocks:
             x = block(x, img_feats)
-        x = rearrange(x, 'b (h w) c -> b c h w')
+        x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
         return x
