@@ -111,6 +111,9 @@ class HRDAEncoderDecoder(EncoderDecoder):
 
         self.orginal_slide_inference = self.test_cfg.get('orginal_slide_inference', False)
 
+        self.test_time_aug = self.test_cfg.get('test_time_aug', False)
+        self.flip = self.test_cfg.get('flip', False)
+
         self.log_interval = 250
 
     def extract_unscaled_feat(self, img):
@@ -187,9 +190,46 @@ class HRDAEncoderDecoder(EncoderDecoder):
             scaled_img = self.resize(img, self.feature_scale)
             return self.extract_unscaled_feat(scaled_img)
 
+
     def slide_inference(self, img: Tensor,img_meta: List[dict]) -> Tensor:
         batched_slide = self.test_cfg.get('batched_slide', False)
-        if not batched_slide:
+        if self.test_time_aug:
+            # scales = [0.5,1]
+            scales = [1]
+
+            res_seg_logits = torch.zeros(img.shape[0], self.num_classes, img.shape[2], img.shape[3]).to(img.device)
+            for scale in scales:
+                image = resize(
+                    input=img,
+                    scale_factor=scale,
+                    mode='bilinear',
+                    align_corners=self.align_corners)
+                
+                seg_logits = super().slide_inference(image, img_meta)
+
+                res_seg_logits += resize(
+                        input=seg_logits,
+                        scale_factor=1/scale,
+                        mode='bilinear',
+                        align_corners=self.align_corners)   
+                
+                if self.flip:
+                    flip_img = torch.flip(image, [3])
+                    flip_seg_logits = super().slide_inference(flip_img, img_meta)
+                    flip_seg_logits =  torch.flip(flip_seg_logits, [3])
+                    res_seg_logits += resize(
+                        input=flip_seg_logits,
+                        scale_factor=1/scale,
+                        mode='bilinear',
+                        align_corners=self.align_corners)   
+                    
+            if self.flip:
+                return res_seg_logits / (len(scales) * 2 )
+            else:
+                return res_seg_logits / len(scales)
+
+                
+        elif not batched_slide:
             return super().slide_inference(img, img_meta)
         else:
             h_stride, w_stride = self.test_cfg.stride

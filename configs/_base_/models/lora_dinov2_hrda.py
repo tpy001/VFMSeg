@@ -71,8 +71,11 @@ model = dict(
     hr_slide_inference=True, 
     train_cfg=dict(),
     test_cfg=dict(
+        test_time_aug = True,
+        flip = True,
+        orginal_slide_inference = True,
         mode='slide',
-        stride=[682, 682],
-        crop_size=[1024, 1024]
+        stride=[682//2, 682//2],
+        crop_size=[1024//2, 1024//2]
         )
 )
