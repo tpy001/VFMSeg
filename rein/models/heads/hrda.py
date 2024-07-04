@@ -28,7 +28,7 @@ def scale_box(box, scale):
     # assert y1 % scale == 0
     # assert y2 % scale == 0
     # assert x1 % scale == 0
-    # assert x2 % scale == 0
+    # assert x2 % scale ==u 0
     y1 = int(y1 / scale)
     y2 = int(y2 / scale)
     x1 = int(x1 / scale)
@@ -39,21 +39,17 @@ def scale_box(box, scale):
 @MODELS.register_module()
 class HRDAHead(BaseDecodeHead):
     def __init__(self,
+                 seg_head,
                  single_scale_head,
                  lr_loss_weight=0,
                  hr_loss_weight=0,
                  scales=[1],
-                 attention_embed_dim=256,
-                 attention_classwise=True,
                  enable_hr_crop=False,
                  hr_slide_inference=True,
-                 fixed_attention=None,
-                 debug_output_attention=False,
-                 decoder_params=None,
                  **kwargs):
-        self.debug = False
+        self.debug = True
         self.debug_output = dict()
-        head_cfg = deepcopy(kwargs)
+        '''head_cfg = deepcopy(kwargs)
         head_cfg['decoder_params']=deepcopy(decoder_params)
         attn_cfg = deepcopy(kwargs)
         attn_cfg['decoder_params']=deepcopy(decoder_params)
@@ -68,38 +64,27 @@ class HRDAHead(BaseDecodeHead):
                     norm_cfg=attn_cfg['decoder_params']['fusion_cfg']
                     ['norm_cfg'])
             kwargs['init_cfg'] = None
-            kwargs['input_transform'] = 'multiple_select'
-            # self.os = 4
-            self.os = 16
-        elif single_scale_head == 'DLV2Head':
-            kwargs['init_cfg'] = None
-            kwargs.pop('dilations')
-            kwargs['channels'] = 1
-            self.os = 8
-        else:
-            raise NotImplementedError(single_scale_head)
-        super(HRDAHead, self).__init__(**kwargs)
-        del self.conv_seg
-        del self.dropout
+            kwargs['input_transform'] = 'multiple_select'''
+        
+        self.os = 4
+        # self.os = 16
+        
+        super(HRDAHead, self).__init__( in_channels=seg_head['in_channels'][0],   
+                 channels=seg_head['channels'],
+                 num_classes=seg_head['num_classes'])
+        # del self.conv_seg
+        # del self.dropout
 
-        head_cfg['type'] = single_scale_head
-        self.head = build_head(head_cfg)
+        
+        self.head = MODELS.build(seg_head)
+        self.scale_attention = MODELS.build(single_scale_head)
 
-        attn_cfg['type'] = single_scale_head
-        if not attention_classwise:
-            attn_cfg['num_classes'] = 1
-        if fixed_attention is None:
-            self.scale_attention = build_head(attn_cfg)
-        else:
-            self.scale_attention = None
-            self.fixed_attention = fixed_attention
         self.lr_loss_weight = lr_loss_weight
         self.hr_loss_weight = hr_loss_weight
         self.scales = scales
         self.enable_hr_crop = enable_hr_crop
         self.hr_crop_box = None
         self.hr_slide_inference = hr_slide_inference
-        self.debug_output_attention = debug_output_attention
 
     def set_hr_crop_box(self, boxes):
         self.hr_crop_box = boxes
@@ -159,8 +144,6 @@ class HRDAHead(BaseDecodeHead):
         
         if self.scale_attention is not None:
             att = torch.sigmoid(self.scale_attention(inp))
-        else:
-            att = self.fixed_attention
         return att
 
     def forward(self, inputs):
@@ -178,12 +161,13 @@ class HRDAHead(BaseDecodeHead):
             crop_y1, crop_y2, crop_x1, crop_x2 = self.hr_crop_box
 
         # print_log(f'lr_inp {[f.shape for f in lr_inp]}', 'mmseg')
-        lr_seg = self.head(lr_inp)
+        lr_seg = self.head(lr_inp)   # 128x128
         # print_log(f'lr_seg {lr_seg.shape}', 'mmseg')
 
-        hr_seg = self.decode_hr(hr_inp, batch_size)
+        hr_seg = self.decode_hr(hr_inp, batch_size)   # 128 x128
 
-        att = self.get_scale_attention(lr_sc_att_inp)
+        att = self.get_scale_attention(lr_sc_att_inp)  
+        att = resize(att,size=lr_seg.shape[2:],mode='bilinear',align_corners=self.align_corners) # 128x128
         if has_crop:
             mask = lr_seg.new_zeros([lr_seg.shape[0], 1, *lr_seg.shape[2:]])
             sc_os = self.os / lr_scale
@@ -206,10 +190,6 @@ class HRDAHead(BaseDecodeHead):
 
         fused_seg = att * hr_seg_inserted + up_lr_seg
 
-        if self.debug_output_attention:
-            att = torch.sum(
-                att * torch.softmax(fused_seg, dim=1), dim=1, keepdim=True)
-            return att, None, None
 
         if self.debug:
             self.debug_output.update({

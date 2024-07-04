@@ -39,4 +39,7 @@ class LoRABackbone(BaseModule):
             return super().train(mode)
         set_requires_grad(self.model, ["lora"])
         set_train(self.model, ["lora"])
+
+    def forward(self,x):
+        return self.model(x)
    

@@ -19,7 +19,15 @@ from mmseg.models.utils  import resize
 from mmseg.registry import MODELS
 from mmseg.models.segmentors import EncoderDecoder
 import torch.nn.functional as F
+import os
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
+from ...utils import subplotimg
 
+
+def denorm(img, mean, std):
+    return img.mul(std).add(mean) / 255.0
 
 
 def get_crop_bbox(img_h, img_w, crop_size, divisible=1):
@@ -72,7 +80,7 @@ class HRDAEncoderDecoder(EncoderDecoder):
                  blur_hr_crop=False,
                  feature_scale=1,
                  data_preprocessor=None):
-        self.debug = False
+        self.debug = True
         self.debug_output = dict()
         self.local_iter = 0
         self.feature_scale_all_strs = ['all']
@@ -102,6 +110,8 @@ class HRDAEncoderDecoder(EncoderDecoder):
         self.blur_hr_crop = blur_hr_crop
 
         self.orginal_slide_inference = self.test_cfg.get('orginal_slide_inference', False)
+
+        self.log_interval = 250
 
     def extract_unscaled_feat(self, img):
         x = self.backbone(img)
@@ -176,13 +186,6 @@ class HRDAEncoderDecoder(EncoderDecoder):
         else:
             scaled_img = self.resize(img, self.feature_scale)
             return self.extract_unscaled_feat(scaled_img)
-
-    def generate_pseudo_label(self, img, img_metas):
-        self.update_debug_state()
-        out = self.encode_decode(img, img_metas)
-        if self.debug:
-            self.debug_output = self.decode_head.debug_output
-        return out
 
     def slide_inference(self, img: Tensor,img_meta: List[dict]) -> Tensor:
         batched_slide = self.test_cfg.get('batched_slide', False)
@@ -337,6 +340,14 @@ class HRDAEncoderDecoder(EncoderDecoder):
 
         if self.debug:
             self.debug_output.update(self.decode_head.debug_output)
+            seg_debug = {}
+            seg_debug['Source'] = self.debug_output
+            if self.local_iter % self.log_interval == 0:
+                batchsize = img.shape[0]
+                means = self.data_preprocessor.mean.to(img.device)
+                stds = self.data_preprocessor.std.to(img.device)
+                self.draw_img(seg_debug,batchsize,means,stds)
+
         self.local_iter += 1
         return losses
 
@@ -350,6 +361,50 @@ class HRDAEncoderDecoder(EncoderDecoder):
         #     mode='bilinear',
         #     align_corners=self.align_corners)
         return {'main': out}
+
+    def draw_img(self, debug_output,batch_size,means,stds):
+        out_dir = os.path.join(self.train_cfg['work_dir'],
+                                   'class_mix_debug')
+        os.makedirs(out_dir, exist_ok=True)
+
+        for j in range(batch_size):
+            # rows, cols = 3, len(debug_output)
+            rows, cols = 1, 9
+            fig, axs = plt.subplots(
+                rows,
+                cols,
+                figsize=(3 * cols, 3 * rows),
+                gridspec_kw={
+                    'hspace': 0.1,
+                    'wspace': 0,
+                    'top': 0.85,
+                    'bottom': 0,
+                    'right': 1,
+                    'left': 0
+                },
+            )
+            for k1, (n1, outs) in enumerate(debug_output.items()):
+                for k2, (n2, out) in enumerate(outs.items()):
+                    if out.shape[1] == 3:
+                        vis = torch.clamp(
+                            denorm(out, means, stds), 0, 1)
+                        # subplotimg(axs[k1][k2], vis[j], f'{n1} {n2}')
+                        subplotimg(axs[k2], vis[j], f'{n1} {n2}')
+
+                    else:
+                        if out.ndim == 3:
+                            args = dict(cmap='cityscapes')
+                        else:
+                            args = dict(cmap='gray', vmin=0, vmax=1)
+                        #subplotimg(axs[k1][k2], out[j], f'{n1} {n2}',
+                               #      **args)
+                        subplotimg(axs[k2], out[j], f'{n1} {n2}',**args)
+            for ax in axs.flat:
+                ax.axis('off')
+            plt.savefig(
+                os.path.join(out_dir,
+                                f'{(self.local_iter + 1):06d}_{j}_s.png'))
+            plt.close()
 
 
 @MODELS.register_module()
