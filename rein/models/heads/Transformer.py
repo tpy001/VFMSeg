@@ -4,7 +4,25 @@ import torch
 import torch.nn.functional as F
 from torch import nn, einsum
 from einops import rearrange, repeat
-    
+import os
+import warnings
+from mmseg.registry import MODELS
+
+
+XFORMERS_ENABLED = os.environ.get("XFORMERS_DISABLED") is None
+try:
+    if XFORMERS_ENABLED:
+        from xformers.ops import memory_efficient_attention, unbind
+
+        XFORMERS_AVAILABLE = True
+        warnings.warn("xFormers is available (Attention)")
+    else:
+        warnings.warn("xFormers is disabled (Attention)")
+        raise ImportError
+except ImportError:
+    XFORMERS_AVAILABLE = False
+    warnings.warn("xFormers is not available (Attention)")
+
 def exists(val):
     return val is not None
 
@@ -74,78 +92,6 @@ def Normalize(in_channels):
     return torch.nn.GroupNorm(num_groups=32, num_channels=in_channels, eps=1e-6, affine=True)
 
 
-class LinearAttention(nn.Module):
-    def __init__(self, dim, heads=4, dim_head=32):
-        super().__init__()
-        self.heads = heads
-        hidden_dim = dim_head * heads
-        self.to_qkv = nn.Conv2d(dim, hidden_dim * 3, 1, bias = False)
-        self.to_out = nn.Conv2d(hidden_dim, dim, 1)
-
-    def forward(self, x):
-        b, c, h, w = x.shape
-        qkv = self.to_qkv(x)
-        q, k, v = rearrange(qkv, 'b (qkv heads c) h w -> qkv b heads c (h w)', heads = self.heads, qkv=3)
-        k = k.softmax(dim=-1)  
-        context = torch.einsum('bhdn,bhen->bhde', k, v)
-        out = torch.einsum('bhde,bhdn->bhen', context, q)
-        out = rearrange(out, 'b heads c (h w) -> b (heads c) h w', heads=self.heads, h=h, w=w)
-        return self.to_out(out)
-
-
-class SpatialSelfAttention(nn.Module):
-    def __init__(self, in_channels):
-        super().__init__()
-        self.in_channels = in_channels
-
-        self.norm = Normalize(in_channels)
-        self.q = torch.nn.Conv2d(in_channels,
-                                 in_channels,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0)
-        self.k = torch.nn.Conv2d(in_channels,
-                                 in_channels,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0)
-        self.v = torch.nn.Conv2d(in_channels,
-                                 in_channels,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0)
-        self.proj_out = torch.nn.Conv2d(in_channels,
-                                        in_channels,
-                                        kernel_size=1,
-                                        stride=1,
-                                        padding=0)
-
-    def forward(self, x):
-        h_ = x
-        h_ = self.norm(h_)
-        q = self.q(h_)
-        k = self.k(h_)
-        v = self.v(h_)
-
-        # compute attention
-        b,c,h,w = q.shape
-        q = rearrange(q, 'b c h w -> b (h w) c')
-        k = rearrange(k, 'b c h w -> b c (h w)')
-        w_ = torch.einsum('bij,bjk->bik', q, k)
-
-        w_ = w_ * (int(c)**(-0.5))
-        w_ = torch.nn.functional.softmax(w_, dim=2)
-
-        # attend to values
-        v = rearrange(v, 'b c h w -> b c (h w)')
-        w_ = rearrange(w_, 'b i j -> b j i')
-        h_ = torch.einsum('bij,bjk->bik', v, w_)
-        h_ = rearrange(h_, 'b c (h w) -> b c h w', h=h)
-        h_ = self.proj_out(h_)
-
-        return x+h_
-
-
 class CrossAttention(nn.Module):
     def __init__(self, query_dim, context_dim=None, heads=8, dim_head=64, dropout=0.):
         super().__init__()
@@ -164,7 +110,7 @@ class CrossAttention(nn.Module):
             nn.Dropout(dropout)
         )
 
-    def forward(self, x, context=None, mask=None):
+    def _forward(self, x, context=None, mask=None):
         h = self.heads
 
         q = self.to_q(x)
@@ -189,17 +135,37 @@ class CrossAttention(nn.Module):
         out = rearrange(out, '(b h) n d -> b n (h d)', h=h)
         return self.to_out(out)
 
+class MemEffAttention(CrossAttention):
+
+    def forward(self, x, context=None, mask=None):
+        if not XFORMERS_AVAILABLE:
+            return self._forward(x)
+
+        h = self.heads
+
+        q = self.to_q(x)
+        context = default(context, x)
+        k = self.to_k(context)
+        v = self.to_v(context)
+
+        # q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> (b h) n d', h=h), (q, k, v))
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b n h d', h=h), (q, k, v))
+        x = memory_efficient_attention(q, k, v)
+        x = rearrange(x, 'b n h d -> b n (h d)', h=h)
+
+        return self.to_out(x)
 
 class BasicTransformerBlock(nn.Module):
-    def __init__(self, dim, n_heads, d_head, dropout=0., context_dim=None, gated_ff=True):
+    def __init__(self, query_dim, n_heads, d_head, dropout=0., context_dim=None, gated_ff=True):
         super().__init__()
-        self.attn1 = CrossAttention(query_dim=dim, heads=n_heads, dim_head=d_head, dropout=dropout)  # is a self-attention
-        self.ff = FeedForward(dim, dropout=dropout, glu=gated_ff)
-        self.attn2 = CrossAttention(query_dim=dim, context_dim=context_dim,
+        self.attn1 = MemEffAttention(query_dim=query_dim, heads=n_heads, dim_head=d_head, dropout=dropout)  # is a self-attention
+        self.ff = FeedForward(query_dim, dropout=dropout, glu=gated_ff)
+        self.attn2 = MemEffAttention(query_dim=query_dim, context_dim=context_dim,
                                     heads=n_heads, dim_head=d_head, dropout=dropout)  # is self-attn if context is none
-        self.norm1 = nn.LayerNorm(dim)
-        self.norm2 = nn.LayerNorm(dim)
-        self.norm3 = nn.LayerNorm(dim)
+        self.norm1 = nn.LayerNorm(query_dim)
+        self.norm2 = nn.LayerNorm(query_dim)
+        self.norm3 = nn.LayerNorm(query_dim)
+
 
     def forward(self, x, context=None):
         return self._forward(x, context)
@@ -211,50 +177,31 @@ class BasicTransformerBlock(nn.Module):
         return x
 
 
-class SpatialTransformer(nn.Module):
-    """
-    Transformer block for image-like data.
-    First, project the input (aka embedding)
-    and reshape to b, t, d.
-    Then apply standard transformer action.
-    Finally, reshape to image
-    """
-    def __init__(self, in_channels, n_heads, d_head,
-                 depth=1, dropout=0., context_dim=None):
+@MODELS.register_module()
+class TransformerDecoder(nn.Module):
+    
+    def __init__(self, query_dim, n_heads, d_head,
+                 depth=1, dropout=0., img_feat_dim=None):
         super().__init__()
-        self.in_channels = in_channels
-        inner_dim = n_heads * d_head
-        self.norm = Normalize(in_channels)
-
-        self.proj_in = nn.Conv2d(in_channels,
-                                 inner_dim,
-                                 kernel_size=1,
-                                 stride=1,
-                                 padding=0)
+        self.in_channels = query_dim
+        self.norm = Normalize(query_dim)
 
         self.transformer_blocks = nn.ModuleList(
-            [BasicTransformerBlock(inner_dim, n_heads, d_head, dropout=dropout, context_dim=context_dim)
-                for d in range(depth)]
+            [BasicTransformerBlock(query_dim, n_heads, d_head, dropout=dropout, context_dim=img_feat_dim)
+                for _ in range(depth)]
         )
 
-        self.proj_out = zero_module(nn.Conv2d(inner_dim,
-                                              in_channels,
-                                              kernel_size=1,
-                                              stride=1,
-                                              padding=0))
 
-    def forward(self, x, context=None):
-        # note: if no context is given, cross-attention defaults to self-attention
-        b, c, h, w = x.shape
-        x_in = x
+    def forward(self, img_feats,seg_logit_embed,query=None):
+        b, c, h, w = seg_logit_embed.shape
+        if query is not None:
+            x = torch.cat(query, seg_logit_embed,dim=1)
+        else:
+            x = seg_logit_embed
         x = self.norm(x)
-        x = self.proj_in(x)
         x = rearrange(x, 'b c h w -> b (h w) c')
-        if context is not None:
-            # context = self.proj_in_context(context)
-            context = rearrange(context, 'b c h w -> b (h w) c')
+        img_feats = rearrange(img_feats, 'b c h w -> b (h w) c')
         for block in self.transformer_blocks:
-            x = block(x, context=context)
+            x = block(x, img_feats)
         x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
-        x = self.proj_out(x)
-        return x + x_in
+        return x

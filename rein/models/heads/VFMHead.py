@@ -9,28 +9,16 @@ from mmseg.models.utils  import resize
 from mmseg.models.losses import accuracy
 
 
-
 @MODELS.register_module()
-class LinearHead(BaseDecodeHead):
+class VFMHead(BaseDecodeHead):
 
-    def __init__(self, interpolate_mode='bilinear', **kwargs):
+    def __init__(self, transformer,interpolate_mode='bilinear', **kwargs):
         super().__init__(input_transform='multiple_select', **kwargs)
 
         self.interpolate_mode = interpolate_mode
         num_inputs = len(self.in_channels)
 
         assert num_inputs == len(self.in_index)
-
-        '''self.convs = nn.ModuleList()
-        for i in range(num_inputs):
-            self.convs.append(
-                ConvModule(
-                    in_channels=self.in_channels[i],
-                    out_channels=self.channels,
-                    kernel_size=1,
-                    stride=1,
-                    norm_cfg=self.norm_cfg,
-                    act_cfg=self.act_cfg))'''
         
         self._channels = self.in_channels[0]
         self.fusion_conv = ConvModule(
@@ -39,40 +27,37 @@ class LinearHead(BaseDecodeHead):
             kernel_size=1,
             norm_cfg=self.norm_cfg)
         
+        self.transformer_decoder = MODELS.build(transformer)
+
+        self.seg_logits_embed = ConvModule(
+                in_channels=19,
+                out_channels=transformer['query_dim'],
+                kernel_size=1,
+                norm_cfg=self.norm_cfg)
+        
         self.output_upscaling = nn.Sequential(
-            nn.ConvTranspose2d(self._channels, self._channels//2, kernel_size=2, stride=2),
-            nn.SyncBatchNorm(self._channels//2),
-            nn.GELU(),
-            nn.ConvTranspose2d(self._channels//2, self._channels//4, kernel_size=2, stride=2),
+            nn.ConvTranspose2d(transformer['query_dim'], transformer['query_dim']//2, kernel_size=2, stride=2),
+            nn.GroupNorm(num_groups=32, num_channels=transformer['query_dim']//2),
             nn.GELU(),
         )
 
-    def forward(self, inputs):
-        # Receive 4 stage backbone feature map: 1/4, 1/8, 1/16, 1/32
+    def forward(self,inputs,seg_logits,query=None):
         inputs = self._transform_inputs(inputs)
-        '''outs = []
-        for idx in range(len(inputs)):
-            x = inputs[idx]
-            conv = self.convs[idx]
-            outs.append(
-                resize(
-                    input=conv(x),
-                    size=inputs[0].shape[2:],
-                    mode=self.interpolate_mode,
-                    align_corners=self.align_corners))'''
+        img_feats = self.fusion_conv(torch.cat(inputs, dim=1))
 
-        out = self.fusion_conv(torch.cat(inputs, dim=1))
+        seg_logits_embed = self.seg_logits_embed(seg_logits)
+        out = self.transformer_decoder(img_feats,seg_logits_embed,query)
 
         out = self.output_upscaling(out)
-
         out = self.cls_seg(out)
 
         return out
-
-    def loss(self, inputs, seg_label,return_logits=False) -> dict:
+    
+    def loss(self,inputs,seg_logits_embed,
+             seg_label,query=None,return_logits=False) -> dict:
         # inputs: 64x64
         # seg_label: 512x512
-        seg_logits = self.forward(inputs)
+        seg_logits = self.forward(inputs,seg_logits_embed,query)
         seg_logits = resize(
             input=seg_logits,
             size=seg_label.shape[2:],
@@ -111,3 +96,5 @@ class LinearHead(BaseDecodeHead):
             return losses,seg_logits
         else:
             return losses
+
+
