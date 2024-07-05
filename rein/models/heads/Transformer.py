@@ -139,7 +139,7 @@ class MemEffAttention(CrossAttention):
 
     def forward(self, x, context=None, mask=None):
         if not XFORMERS_AVAILABLE:
-            return self._forward(x)
+            return self._forward(x,context)
 
         h = self.heads
 
@@ -177,11 +177,59 @@ class BasicTransformerBlock(nn.Module):
         return x
 
 
+class SpatialTransformer(nn.Module):
+    """
+    Transformer block for image-like data.
+    First, project the input (aka embedding)
+    and reshape to b, t, d.
+    Then apply standard transformer action.
+    Finally, reshape to image
+    """
+    def __init__(self, in_channels, n_heads, d_head,
+                 depth=1, dropout=0., context_dim=None):
+        super().__init__()
+        self.in_channels = in_channels
+        inner_dim = n_heads * d_head
+        self.norm = Normalize(in_channels)
+
+        self.proj_in = nn.Conv2d(in_channels,
+                                 inner_dim,
+                                 kernel_size=1,
+                                 stride=1,
+                                 padding=0)
+
+        self.transformer_blocks = nn.ModuleList(
+            [BasicTransformerBlock(inner_dim, n_heads, d_head, dropout=dropout, context_dim=context_dim)
+                for d in range(depth)]
+        )
+
+        self.proj_out = zero_module(nn.Conv2d(inner_dim,
+                                              in_channels,
+                                              kernel_size=1,
+                                              stride=1,
+                                              padding=0))
+
+    def forward(self, x, context=None):
+        # note: if no context is given, cross-attention defaults to self-attention
+        b, c, h, w = x.shape
+        x_in = x
+        x = self.norm(x)
+        x = self.proj_in(x)
+        x = rearrange(x, 'b c h w -> b (h w) c')
+        if context is not None:
+            # context = self.proj_in_context(context)
+            context = rearrange(context, 'b c h w -> b (h w) c')
+        for block in self.transformer_blocks:
+            x = block(x, context=context)
+        x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
+        x = self.proj_out(x)
+        return x + x_in
+    
 @MODELS.register_module()
 class TransformerDecoder(nn.Module):
     
-    def __init__(self, query_dim, n_heads, d_head,
-                 depth=1, dropout=0., img_feat_dim=None):
+    def __init__(self, query_dim, img_feat_dim, n_heads, d_head,
+                 depth=1, dropout=0., ):
         super().__init__()
         self.in_channels = query_dim
         self.norm = Normalize(query_dim)
@@ -192,13 +240,10 @@ class TransformerDecoder(nn.Module):
         )
 
 
-    def forward(self, img_feats,seg_logit_embed,query=None):
-        b, c, h, w = seg_logit_embed.shape
-        if query is not None:
-            x = torch.cat(query, seg_logit_embed,dim=1)
-        else:
-            x = seg_logit_embed
-        x = self.norm(x)
+    def forward(self, query,img_feats):
+        b, c, h, w = img_feats.shape
+        
+        x = self.norm(query)
         x = rearrange(x, 'b c h w -> b (h w) c')
         img_feats = rearrange(img_feats, 'b c h w -> b (h w) c')
         for block in self.transformer_blocks:

@@ -14,7 +14,7 @@ model = dict(
     ),
     backbone=dict(
         type="LoRABackbone",
-        model=dict(
+        backbone=dict(
             type='DinoVisionTransformer',
             patch_size=16,
             embed_dim=1024,
@@ -53,12 +53,11 @@ model = dict(
         type='VFMHead',
         transformer = dict(
             type='TransformerDecoder',
-            query_dim = 512,
+            query_dim = 256,
             n_heads = 8,
             d_head = 64,
-            depth = 1,
+            depth = 3,
             dropout = 0.1,
-            img_feat_dim = 1024
         ),
         in_channels=[1024, 1024, 1024, 1024],
         in_index=[0, 1, 2, 3],

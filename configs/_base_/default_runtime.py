@@ -20,7 +20,7 @@ randomness = dict(
 
 log_config = dict(
     interval=50,
-    img_interval=1000,
+    img_interval=50      ,
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
         # dict(type='TensorboardLoggerHook')

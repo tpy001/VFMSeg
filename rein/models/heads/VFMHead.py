@@ -19,36 +19,71 @@ class VFMHead(BaseDecodeHead):
         num_inputs = len(self.in_channels)
 
         assert num_inputs == len(self.in_index)
+
+        transformer['img_feat_dim'] = self.channels * 2 
+        self.query_dim = transformer['query_dim']
+
+        self.activation = nn.GELU()
+
+        self.fuse_conv = nn.Sequential(
+            # nn.Conv2d(self.in_channels[0]* num_inputs, self.in_channels[0], kernel_size=1, stride=1),
+            nn.Conv2d(self.in_channels[0]* num_inputs, self.channels, kernel_size=1, stride=1),
+            nn.GroupNorm(num_groups=32,num_channels= self.channels),
+            self.activation,
+        )
+
+        self.output_upscaling = nn.Sequential(
+            nn.ConvTranspose2d(self.query_dim , self.query_dim  // 2, kernel_size=2, stride=2),
+            nn.GroupNorm(num_groups=32,num_channels=self.query_dim  // 2),
+            self.activation,
+            nn.ConvTranspose2d(self.query_dim  //2 , self.query_dim  // 4, kernel_size=2, stride=2),
+            self.activation
+        )
         
-        self._channels = self.in_channels[0]
-        self.fusion_conv = ConvModule(
-            in_channels=self._channels * num_inputs,
-            out_channels=self._channels,
-            kernel_size=1,
-            norm_cfg=self.norm_cfg)
+        self.conv_seg = nn.Conv2d(self.query_dim  // 4, self.out_channels, kernel_size=1)
         
+        self.seg_logits_embed = nn.Sequential(
+            nn.Conv2d(19, self.channels // 4, kernel_size=2, stride=2),
+            nn.GroupNorm(num_groups=32,num_channels=self.channels // 4),
+            self.activation,
+            
+            nn.Conv2d(self.channels // 4, self.channels // 2, kernel_size=2, stride=2),
+            nn.GroupNorm(num_groups=32,num_channels=self.channels // 2),
+            self.activation,
+
+            nn.Conv2d(self.channels // 2, self.channels, kernel_size=1, stride=1),
+            nn.GroupNorm(num_groups=32,num_channels=self.channels),
+        )
+
         self.transformer_decoder = MODELS.build(transformer)
 
-        self.seg_logits_embed = ConvModule(
-                in_channels=19,
-                out_channels=transformer['query_dim'],
-                kernel_size=1,
-                norm_cfg=self.norm_cfg)
+        batch_size = 2
+        H,W = 32,32
+        self.query = nn.Parameter(torch.randn(batch_size, self.query_dim, H,W))
+        self.pos_enc = nn.Parameter(torch.randn(batch_size, self.query_dim, H,W))
+
         
-        self.output_upscaling = nn.Sequential(
-            nn.ConvTranspose2d(transformer['query_dim'], transformer['query_dim']//2, kernel_size=2, stride=2),
-            nn.GroupNorm(num_groups=32, num_channels=transformer['query_dim']//2),
-            nn.GELU(),
-        )
+        
 
     def forward(self,inputs,seg_logits,query=None):
         inputs = self._transform_inputs(inputs)
-        img_feats = self.fusion_conv(torch.cat(inputs, dim=1))
+        seg_logits = resize(
+                input=seg_logits,
+                size=(inputs[0].shape[2] * 4, inputs[0].shape[3] * 4),
+                mode='bilinear',
+                align_corners=self.align_corners)    # 128 x128
+        
+        img_feats = self.fuse_conv(torch.cat(inputs, dim=1))
 
-        seg_logits_embed = self.seg_logits_embed(seg_logits)
-        out = self.transformer_decoder(img_feats,seg_logits_embed,query)
+        seg_logits_embed = self.seg_logits_embed(seg_logits)    
+
+        img_feats = torch.cat((img_feats,seg_logits_embed),dim=1)
+
+        query = self.query + self.pos_enc
+        out = self.transformer_decoder(query,img_feats)
 
         out = self.output_upscaling(out)
+
         out = self.cls_seg(out)
 
         return out

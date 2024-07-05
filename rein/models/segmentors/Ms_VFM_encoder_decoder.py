@@ -160,7 +160,6 @@ class MsVFMEncoderDecoder(EncoderDecoder):
         context = seg_logits.detach()    # 512x512
         crop_box = self.resize_box(ratio=2)  
         context = crop(context,crop_box) # 256x256
-        context = resize(context,scale_factor=1/4, mode='bilinear', align_corners=self.align_corners) # 64x64
 
         return context
 
@@ -185,7 +184,7 @@ class MsVFMEncoderDecoder(EncoderDecoder):
         loss_decode_lr,seg_logits = self.decode_head.loss(lr_feats, lr_gt_seg,return_logits=True) # seg_logits: 512x512
         losses.update(add_prefix(loss_decode_lr, 'decode_lr'))
 
-        seg_logits = self.get_seg_logits(seg_logits) # 64x64x19
+        seg_logits = self.get_seg_logits(seg_logits) # 256 x 256
 
 
         loss_decode_hr = self.aux_decoder.loss(hr_feats,seg_logits, hr_gt_seg)
