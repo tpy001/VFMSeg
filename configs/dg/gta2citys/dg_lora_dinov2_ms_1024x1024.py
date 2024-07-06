@@ -29,7 +29,7 @@ param_scheduler = [
 ]
 
 
-train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=40000)
+train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=2000)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 default_hooks = dict(

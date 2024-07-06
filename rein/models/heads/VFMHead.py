@@ -20,7 +20,7 @@ class VFMHead(BaseDecodeHead):
 
         assert num_inputs == len(self.in_index)
 
-        transformer['img_feat_dim'] = self.channels * 2 
+        transformer['img_feat_dim'] = self.channels
         self.query_dim = transformer['query_dim']
 
         self.activation = nn.GELU()
@@ -40,7 +40,7 @@ class VFMHead(BaseDecodeHead):
             self.activation
         )
         
-        self.conv_seg = nn.Conv2d(self.query_dim  // 4, self.out_channels, kernel_size=1)
+        # self.conv_seg = nn.Conv2d(self.query_dim  // 4, self.out_channels, kernel_size=1)
         
         self.seg_logits_embed = nn.Sequential(
             nn.Conv2d(19, self.channels // 4, kernel_size=2, stride=2),
@@ -57,10 +57,10 @@ class VFMHead(BaseDecodeHead):
 
         self.transformer_decoder = MODELS.build(transformer)
 
-        batch_size = 2
+        '''batch_size = 2
         H,W = 32,32
         self.query = nn.Parameter(torch.randn(batch_size, self.query_dim, H,W))
-        self.pos_enc = nn.Parameter(torch.randn(batch_size, self.query_dim, H,W))
+        self.pos_enc = nn.Parameter(torch.randn(batch_size, self.query_dim, H,W))'''
 
         
         
@@ -77,12 +77,20 @@ class VFMHead(BaseDecodeHead):
 
         seg_logits_embed = self.seg_logits_embed(seg_logits)    
 
-        img_feats = torch.cat((img_feats,seg_logits_embed),dim=1)
+         # img_feats = torch.cat((img_feats,seg_logits_embed),dim=1)
 
-        query = self.query + self.pos_enc
-        out = self.transformer_decoder(query,img_feats)
+        # img_feats = img_feats + seg_logits_embed
 
-        out = self.output_upscaling(out)
+        
+        #query = self.query + self.pos_enc
+        # out = self.transformer_decoder(query,img_feats)
+
+        # out = self.transformer_decoder(seg_logits_embed,img_feats)
+        out = self.transformer_decoder(img_feats,seg_logits_embed)
+
+
+
+        # out = self.output_upscaling(out)
 
         out = self.cls_seg(out)
 
