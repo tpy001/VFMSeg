@@ -32,13 +32,6 @@ class VFMHead(BaseDecodeHead):
             self.activation,
         )
 
-        self.output_upscaling = nn.Sequential(
-            nn.ConvTranspose2d(self.query_dim , self.query_dim  // 2, kernel_size=2, stride=2),
-            nn.GroupNorm(num_groups=32,num_channels=self.query_dim  // 2),
-            self.activation,
-            nn.ConvTranspose2d(self.query_dim  //2 , self.query_dim  // 4, kernel_size=2, stride=2),
-            self.activation
-        )
         
         # self.conv_seg = nn.Conv2d(self.query_dim  // 4, self.out_channels, kernel_size=1)
         
@@ -90,7 +83,6 @@ class VFMHead(BaseDecodeHead):
 
 
 
-        # out = self.output_upscaling(out)
 
         out = self.cls_seg(out)
 

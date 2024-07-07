@@ -272,7 +272,7 @@ class MsVFMEncoderDecoder(EncoderDecoder):
         return seg_logits
     
     def slide_inference(self, inputs: Tensor,
-                        batch_img_metas: List[dict],mode='multiscale') -> Tensor:
+                        batch_img_metas: List[dict],mode='ms_slide_inference') -> Tensor:
        
         assert mode in  ['lr_slide_inference','hr_slide_inference','ms_slide_inference','multiscale']
         if mode == 'lr_slide_inference':
