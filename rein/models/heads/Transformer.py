@@ -250,3 +250,32 @@ class TransformerDecoder(nn.Module):
             x = block(x, img_feats)
         x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
         return x
+    
+@MODELS.register_module()
+class MaskTransformerDecoder(TransformerDecoder):
+    
+    def __init__(self, mask_ratio,**kwargs):
+        super().__init__(**kwargs)
+        self.mask_ratio = mask_ratio
+        self.mask_token = nn.Parameter(torch.randn(1,self.in_channels,1,1))
+
+    def mask_feat(self,feats):
+        b, c, h, w = feats.shape
+        mask = torch.rand(b,1,h,w,device=feats.device) > self.mask_ratio
+        expanded_mask_token = self.mask_token.expand(b, -1, h, w)
+        mask_feat = torch.where(mask, feats, expanded_mask_token)
+        return mask_feat
+
+    def forward(self, query,img_feats):
+        # Mask features
+        query = self.mask_feat(query)
+
+        # Transformer Decoder
+        b, c, h, w = img_feats.shape
+        x = self.norm(query)
+        x = rearrange(x, 'b c h w -> b (h w) c')
+        img_feats = rearrange(img_feats, 'b c h w -> b (h w) c')
+        for block in self.transformer_blocks:
+            x = block(x, img_feats)
+        x = rearrange(x, 'b (h w) c -> b c h w', h=h, w=w)
+        return x

@@ -4,7 +4,7 @@ from .daformer_head import DAFormerHead
 from .linear_head import LinearHead
 from .attention_head import AttentionHead
 from .VFMHead import VFMHead
-from .Transformer import TransformerDecoder
+from .Transformer import TransformerDecoder,MaskTransformerDecoder
 
 __all__ = ["ReinMask2FormerHead",
            "HRDAHead",
@@ -14,4 +14,5 @@ __all__ = ["ReinMask2FormerHead",
            "AttentionHead",
            "LinearHead",
            "VFMHead",
-           "TransformerDecoder"]
+           "TransformerDecoder",
+           "MaskTransformerDecoder"]
