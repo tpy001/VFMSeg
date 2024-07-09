@@ -58,7 +58,7 @@ model = dict(
             d_head = 64,
             depth = 3,
             dropout = 0.1,
-            mask_ratio = 0.4,
+            mask_ratio = 0.2,
         ),
         in_channels=[1024, 1024, 1024, 1024],
         in_index=[0, 1, 2, 3],
