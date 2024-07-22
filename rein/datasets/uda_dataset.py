@@ -41,16 +41,12 @@ def get_rcs_class_probs(data_root, temperature):
 @DATASETS.register_module()
 class DGDataset(object):
 
-    def __init__(self, source, target, **cfg):
+    def __init__(self, source, **cfg):
         self.source = DATASETS.build(source)
-        self.target = DATASETS.build(target)
-        self.ignore_index = self.target.ignore_index
-        self.CLASSES = self.target.METAINFO['classes']
-        self.PALETTE = self.target.METAINFO['palette']
-        assert self.target.ignore_index == self.source.ignore_index
-        assert self.target.METAINFO['classes'] == self.source.METAINFO['classes']
-        assert self.target.METAINFO['palette'] == self.source.METAINFO['palette']
-
+        self.ignore_index = self.source.ignore_index
+        self.CLASSES = self.source.METAINFO['classes']
+        self.PALETTE = self.source.METAINFO['palette']
+        
         if 'rare_class_sampling' in cfg:
             rcs_cfg = cfg['rare_class_sampling']
         else:
@@ -104,10 +100,10 @@ class DGDataset(object):
         if self.rcs_enabled:
             return self.get_rare_class_sample()
         else:
-            return self.source[ idx % len(self.source) ]
+            return self.source[idx]
 
     def __len__(self):
-        return len(self.source) * len(self.target)
+        return len(self.source)
     
 
 
