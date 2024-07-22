@@ -271,19 +271,20 @@ class MsVFMEncoderDecoder(EncoderDecoder):
 
         return seg_logits
     
-    def slide_inference(self, inputs: Tensor,
-                        batch_img_metas: List[dict],mode='ms_slide_inference') -> Tensor:
-       
-        assert mode in  ['lr_slide_inference','hr_slide_inference','ms_slide_inference','multiscale']
+    def inference(self, inputs: Tensor, batch_img_metas: List[dict]) -> Tensor:
+        mode =  self.test_cfg.get('mode', 'lr_slide_inference')
+        assert mode in  ['lr_slide_inference','hr_slide_inference','msfull_slide_inference','ms_slide_inference']
+
         if mode == 'lr_slide_inference':
             inputs_lr = resize(inputs, scale_factor=0.5, mode='bilinear', align_corners=self.align_corners)
             lr_seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(inputs_lr,batch_img_metas)
             seg_logits = resize(lr_seg_logits, scale_factor=2, mode='bilinear', align_corners=self.align_corners)
         elif mode == 'hr_slide_inference':
             seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(inputs,batch_img_metas)
-        elif mode == 'ms_slide_inference':
+        elif mode == 'msfull_slide_inference':
             # inputs_lr = resize(inputs, scale_factor=0.5, mode='bilinear', align_corners=self.align_corners)  # 512,1024
             inputs_lr = resize(inputs, size = (512,1024), mode='bilinear', align_corners=self.align_corners)  # 512,1024
+            
 
             lr_seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(inputs_lr,batch_img_metas) # 512,1024
             lr_seg_logits = resize(lr_seg_logits, size=inputs.shape[-2:], mode='bilinear', align_corners=self.align_corners) # 1024,2048
@@ -322,16 +323,26 @@ class MsVFMEncoderDecoder(EncoderDecoder):
                     count_mat[:, :, y1:y2, x1:x2] += 1
             assert (count_mat == 0).sum() == 0
             seg_logits = preds / count_mat
-        elif mode ==   'multiscale':
+        elif mode ==   'ms_slide_inference':
             seg_logits = self.ms_inference(inputs,batch_img_metas)
         return seg_logits
 
 
-    def ms_inference(self, inputs, batch_img_metas,scales = [0.5,1.0,1.5],threadshod = 0.9,conf = 0.9):
+    def ms_inference(self, inputs, batch_img_metas):
+        threadshod = self.test_cfg.get('threadshod', 1.0)
+        conf = self.test_cfg.get('conf', 1.0)
+        scales = self.test_cfg.get('scales', [1.0])
         scales = sorted(scales)
+
+        lr_img_size = self.test_cfg.get('lr_img_size', None)
+
         seg_logits = inputs.new_zeros((inputs.shape[0], self.out_channels, inputs.shape[2], inputs.shape[3]))
         for index,scale in enumerate(scales):
-            imgs = resize(inputs, scale_factor=scale, mode='bilinear', align_corners=self.align_corners)
+            if index == 0 and lr_img_size is not None:
+                imgs = resize(inputs, size=lr_img_size, mode='bilinear', align_corners=self.align_corners)
+            else:   
+                imgs = resize(inputs, scale_factor=scale, mode='bilinear', align_corners=self.align_corners)
+
             seg_logits = resize(seg_logits, size=imgs.shape[2:], mode='bilinear', align_corners=self.align_corners) 
             if index == 0:
                 seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(imgs,batch_img_metas) 
