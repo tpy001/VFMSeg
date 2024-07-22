@@ -76,6 +76,7 @@ class DinoVisionTransformer(BaseModule):
         block_chunks=1,
         out_indices=[7, 11, 15, 23],
         init_cfg=None,
+        resize_feat=False
     ):
         """
         Args:
@@ -178,6 +179,7 @@ class DinoVisionTransformer(BaseModule):
         self.head = nn.Identity()
 
         self.mask_token = nn.Parameter(torch.zeros(1, embed_dim))
+        self.resize_feat = resize_feat
 
     def interpolate_pos_encoding(self, x, w, h):
         previous_dtype = x.dtype
@@ -329,24 +331,25 @@ class DinoVisionTransformer(BaseModule):
 
     def forward(self, *args, **kwargs):
         ret = self.forward_features(*args, **kwargs)
-        '''if isinstance(ret[0], torch.Tensor):
-            ret[0] = F.interpolate(
-                ret[0], scale_factor=4, mode="bilinear", align_corners=False
-            )
-            ret[1] = F.interpolate(
-                ret[1], scale_factor=2, mode="bilinear", align_corners=False
-            )
-            ret[3] = F.interpolate(
-                ret[3], scale_factor=0.5, mode="bilinear", align_corners=False
-            )
-        else:
-            ret[0][0] = F.interpolate(
-                ret[0][0], scale_factor=4, mode="bilinear", align_corners=False
-            )
-            ret[0][1] = F.interpolate(
-                ret[0][1], scale_factor=2, mode="bilinear", align_corners=False
-            )
-            ret[0][3] = F.interpolate(
-                ret[0][3], scale_factor=0.5, mode="bilinear", align_corners=False
-            )'''
+        if self.resize_feat:
+            if isinstance(ret[0], torch.Tensor):
+                ret[0] = F.interpolate(
+                    ret[0], scale_factor=4, mode="bilinear", align_corners=False
+                )
+                ret[1] = F.interpolate(
+                    ret[1], scale_factor=2, mode="bilinear", align_corners=False
+                )
+                ret[3] = F.interpolate(
+                    ret[3], scale_factor=0.5, mode="bilinear", align_corners=False
+                )
+            else:
+                ret[0][0] = F.interpolate(
+                    ret[0][0], scale_factor=4, mode="bilinear", align_corners=False
+                )
+                ret[0][1] = F.interpolate(
+                    ret[0][1], scale_factor=2, mode="bilinear", align_corners=False
+                )
+                ret[0][3] = F.interpolate(
+                    ret[0][3], scale_factor=0.5, mode="bilinear", align_corners=False
+                )
         return ret

@@ -21,6 +21,7 @@ model = dict(
     ),
     backbone=dict(
         type='DinoVisionTransformer',
+        resize_feat=True,
         patch_size=16,
         embed_dim=1024,
         depth=24,

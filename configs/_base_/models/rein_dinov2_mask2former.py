@@ -13,6 +13,7 @@ model = dict(
     ),
     backbone=dict(
         type="ReinsDinoVisionTransformer",
+        resize_feat = True,
         reins_config=dict(
             type="LoRAReins",
             token_length=100,
