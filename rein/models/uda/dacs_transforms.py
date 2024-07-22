@@ -2,7 +2,7 @@
 # Copyright (c) 2020 vikolss. Licensed under the MIT License
 # A copy of the license is available at resources/license_dacs
 
-import kornia
+# import kornia
 import numpy as np
 import torch
 import torch.nn as nn

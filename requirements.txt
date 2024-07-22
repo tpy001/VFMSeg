@@ -1,0 +1,11 @@
+numpy
+ftfy
+scipy
+prettytable
+matplotlib
+regex
+timm
+einops
+future
+tensorboard
+peft==0.10.0
