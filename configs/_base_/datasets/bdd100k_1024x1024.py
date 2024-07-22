@@ -12,7 +12,7 @@ bdd_train_pipeline = [
 ]
 bdd_test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(1280, 720), keep_ratio=True),
+    dict(type="Resize", scale=(1280*1.5, 720*1.5), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
     dict(type="LoadAnnotations"),

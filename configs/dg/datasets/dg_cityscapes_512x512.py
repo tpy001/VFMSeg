@@ -13,7 +13,7 @@ train_dataloader = dict(
     sampler=dict(type="InfiniteSampler", shuffle=True),
     dataset=dict(
         type="DGDataset",
-        source = {{_base_.train_gta}},
+        source = {{_base_.train_cityscapes}},
         rare_class_sampling=dict(
             class_temp=0.01,
             min_crop_ratio=0.5,
@@ -30,7 +30,6 @@ val_dataloader = dict(
     dataset=dict(
         type="ConcatDataset",
         datasets=[
-            {{_base_.val_cityscapes}},
             {{_base_.val_bdd}},
             {{_base_.val_mapillary}},
         ],

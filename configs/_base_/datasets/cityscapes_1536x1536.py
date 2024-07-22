@@ -1,10 +1,10 @@
 cityscapes_type = "CityscapesDataset"
 cityscapes_root = "data/cityscapes/"
-cityscapes_crop_size = (512, 512)
+cityscapes_crop_size = (1024, 1024)
 cityscapes_train_pipeline = [
     dict(type="LoadImageFromFile"),
     dict(type="LoadAnnotations"),
-    dict(type="Resize", scale=(1024, 512)),
+    dict(type="Resize", scale=(2048, 1024)),
     dict(type="RandomCrop", crop_size=cityscapes_crop_size, cat_max_ratio=0.75),
     dict(type="RandomFlip", prob=0.5),
     dict(type="PhotoMetricDistortion"),
@@ -12,7 +12,7 @@ cityscapes_train_pipeline = [
 ]
 cityscapes_test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(1024, 512), keep_ratio=True),
+    dict(type="Resize", scale=(2048*1.5, 1024*1.5), keep_ratio=True),    # dict(type="Resize", scale=(1024, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
     dict(type="LoadAnnotations"),
