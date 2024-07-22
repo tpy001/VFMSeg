@@ -70,6 +70,7 @@ model = dict(
         loss_decode=dict(
             type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0),
     ),
+    detail_loss = 0.5,
     scales=[1, 0.5],
     hr_crop_size=(512, 512),
     feature_scale=0.5,

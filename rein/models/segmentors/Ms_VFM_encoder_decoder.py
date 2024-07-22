@@ -78,7 +78,8 @@ class MsVFMEncoderDecoder(EncoderDecoder):
                  feature_scale=1,
                  data_preprocessor=None,
                  debug=False,
-                 debug_interval=100):
+                 debug_interval=100,
+                 detail_loss=1.0):
         self.local_iter = 0
         self.feature_scale_all_strs = ['all']
         if isinstance(feature_scale, str):
@@ -109,6 +110,8 @@ class MsVFMEncoderDecoder(EncoderDecoder):
 
         # transformer decoder
         self.aux_decoder = MODELS.build(aux_head)
+
+        self.detail_loss = detail_loss
 
         
 
@@ -188,6 +191,7 @@ class MsVFMEncoderDecoder(EncoderDecoder):
 
 
         loss_decode_hr = self.aux_decoder.loss(hr_feats,seg_logits, hr_gt_seg)
+        loss_decode_hr['loss_ce' ] *= self.detail_loss
         losses.update(add_prefix(loss_decode_hr, 'decode_hr'))
 
         if self.local_iter % self.debug_interval == 0:
