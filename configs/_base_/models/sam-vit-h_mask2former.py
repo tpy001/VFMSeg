@@ -1,35 +1,38 @@
+# model settings
 crop_size = (512, 512)
 num_classes = 19
 norm_cfg = dict(type="SyncBN", requires_grad=True)
-custom_imports = dict(imports="mmpretrain.models", allow_failed_imports=False)
-checkpoint_file = "https://download.openmmlab.com/mmclassification/v0/convnext/downstream/convnext-large_3rdparty_in21k_20220301-e6e0ea0a.pth"  # noqa
 data_preprocessor = dict(
     type="SegDataPreProcessor",
     mean=[123.675, 116.28, 103.53],
     std=[58.395, 57.12, 57.375],
-    size=crop_size,
     bgr_to_rgb=True,
     pad_val=0,
     seg_pad_val=255,
+    size=crop_size,
 )
+checkpoint_file = "checkpoints/sam_vit_h_converted_512x512.pth"
 model = dict(
     type="EncoderDecoder",
     data_preprocessor=data_preprocessor,
-    pretrained=None,
     backbone=dict(
-        type="mmpretrain.ConvNeXt",
-        arch="large",
-        out_indices=[0, 1, 2, 3],
-        drop_path_rate=0.4,
-        layer_scale_init_value=1.0,
-        gap_before_final_norm=False,
+        type="SAMViT",
+        img_size=512,
+        embed_dim=1280,
+        depth=32,
+        num_heads=16,
+        global_attn_indexes=[7, 15, 23, 31],
+        out_indices=[7, 15, 23, 31],
+        window_size=14,
+        use_rel_pos=True,
         init_cfg=dict(
-            type="Pretrained", checkpoint=checkpoint_file, prefix="backbone."
+            type="Pretrained",
+            checkpoint=checkpoint_file,
         ),
     ),
     decode_head=dict(
         type="Mask2FormerHead",
-        in_channels=[192, 384, 768, 1536],
+        in_channels=[1280, 1280, 1280, 1280],
         strides=[4, 8, 16, 32],
         feat_channels=256,
         out_channels=256,
@@ -145,7 +148,7 @@ model = dict(
             ),
             sampler=dict(type="mmdet.MaskPseudoSampler"),
         ),
-    ),
+    ),  # yapf: disable
     # model training and testing settings
     train_cfg=dict(),
     test_cfg=dict(
