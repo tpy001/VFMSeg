@@ -77,7 +77,10 @@ model = dict(
     crop_coord_divisible=32,
     train_cfg=dict(),
     test_cfg=dict(
-        mode='slide',
+        mode='ms_slide_inference',
+        threadshod = 0.968,
+        conf = 0.8,
+        lr_img_size = (512,1024), # only for bdd100k
         stride=[320, 320],
         crop_size=[512, 512]
     )

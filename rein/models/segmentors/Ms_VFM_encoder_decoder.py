@@ -332,7 +332,7 @@ class MsVFMEncoderDecoder(EncoderDecoder):
         return seg_logits
 
 
-    def ms_inference(self, inputs, batch_img_metas):
+    """def ms_inference(self, inputs, batch_img_metas):
         threadshod = self.test_cfg.get('threadshod', 1.0)
         conf = self.test_cfg.get('conf', 1.0)
         scales = self.test_cfg.get('scales', [1.0])
@@ -395,8 +395,66 @@ class MsVFMEncoderDecoder(EncoderDecoder):
                 assert (count_mat == 0).sum() == 0
                 seg_logits = preds / count_mat
 
-        return seg_logits
+        return seg_logits"""
 
+    def ms_inference(self, inputs, batch_img_metas):
+        threadshod = self.test_cfg.get('threadshod', 1.0)
+        conf = self.test_cfg.get('conf', 1.0)
+
+        lr_img_size = self.test_cfg.get('lr_img_size', None)
+        assert lr_img_size is not None
+
+        seg_logits = inputs.new_zeros((inputs.shape[0], self.out_channels, inputs.shape[2], inputs.shape[3]))
+        for index in range(2):
+            if index == 0:
+                imgs = resize(inputs, size=lr_img_size, mode='bilinear', align_corners=self.align_corners)
+            else:   
+                imgs = inputs
+
+            seg_logits = resize(seg_logits, size=imgs.shape[2:], mode='bilinear', align_corners=self.align_corners) 
+            if index == 0:
+                seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(imgs,batch_img_metas) 
+            else:
+                h_stride, w_stride = self.test_cfg.stride
+                h_crop, w_crop = self.test_cfg.crop_size
+                batch_size, _, h_img, w_img = imgs.size()
+                out_channels = self.out_channels
+                h_grids = max(h_img - h_crop + h_stride - 1, 0) // h_stride + 1
+                w_grids = max(w_img - w_crop + w_stride - 1, 0) // w_stride + 1
+                preds = imgs.new_zeros((batch_size, out_channels, h_img, w_img))
+                count_mat = imgs.new_zeros((batch_size, 1, h_img, w_img))
+                    
+                for h_idx in range(h_grids):
+                    for w_idx in range(w_grids):
+                        y1 = h_idx * h_stride
+                        x1 = w_idx * w_stride
+                        y2 = min(y1 + h_crop, h_img)
+                        x2 = min(x1 + w_crop, w_img)
+                        y1 = max(y2 - h_crop, 0)
+                        x1 = max(x2 - w_crop, 0)
+                        crop_box = (y1,y2, x1,x2)  # 512,512
+                        crop_img = crop(imgs,crop_box) # 512,512
+                        context = crop(seg_logits, crop_box) # 512,512
+                        self.hr_crop_box = crop_box
+                        
+                        ema_softmax = torch.softmax(context, dim=1)
+                        confidence, _ = torch.max(ema_softmax, dim=1)
+                        confidence = (confidence > threadshod).float().mean().item()
+                        if confidence < conf:
+                            crop_seg_logit = self.enc_dec(crop_img, context) 
+                        else:
+                            crop_seg_logit = context
+                        crop_seg_logit = resize(crop_seg_logit, size=crop_img.shape[2:], mode='bilinear', align_corners=self.align_corners)
+
+                        preds += F.pad(crop_seg_logit,
+                                    (int(x1), int(preds.shape[3] - x2), int(y1),
+                                        int(preds.shape[2] - y2)))
+
+                        count_mat[:, :, y1:y2, x1:x2] += 1
+                assert (count_mat == 0).sum() == 0
+                seg_logits = preds / count_mat
+
+        return seg_logits
             
     def resize_box(self,ratio):
         crop_box = []
