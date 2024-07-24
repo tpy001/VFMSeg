@@ -29,12 +29,6 @@ model = dict(
         out_indices=[7, 11, 15, 23],
         heads=16,
     ),
-    neck=dict(
-        type="MultiLevelNeck",
-        in_channels=[1024, 1024, 1024, 1024],
-        out_channels=1024,
-        scales=[4, 2, 1, 0.5],
-    ),
     decode_head=dict(
         type="Mask2FormerHead",
         in_channels=[1024, 1024, 1024, 1024],

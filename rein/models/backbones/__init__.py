@@ -6,6 +6,7 @@ from .clip import CLIPVisionTransformer
 from .lora_backbone import LoRABackbone
 from .sam_vit import SAMViT
 from .reins_sam_vit import  ReinsSAMViT
+from .reins_clip import ReinsCLIPVisionTransformer
 
 __all__ = [
     "CLIPVisionTransformer",
@@ -15,5 +16,6 @@ __all__ = [
     "ReinsResNetV1c",
     "LoRABackbone",
     "SAMViT",
-    "ReinsSAMViT"
+    "ReinsSAMViT",
+    "ReinsCLIPVisionTransformer"
 ]

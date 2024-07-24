@@ -221,6 +221,46 @@ class CLIPVisionTransformer(nn.Module):
             self.proj = nn.Parameter(scale * torch.randn(width, output_dim))
 
         embed_dim = width
+        if patch_size == 16:
+            self.fpn1 = nn.Sequential(
+                nn.GroupNorm(1, embed_dim),
+                nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=2, stride=2),
+                nn.SyncBatchNorm(embed_dim),
+                nn.GELU(),
+                nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=2, stride=2),
+            )
+
+            self.fpn2 = nn.Sequential(
+                nn.GroupNorm(1, embed_dim),
+                nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=2, stride=2),
+            )
+
+            self.fpn3 = nn.GroupNorm(1, embed_dim)
+
+            self.fpn4 = nn.Sequential(
+                nn.GroupNorm(1, embed_dim), nn.MaxPool2d(kernel_size=2, stride=2)
+            )
+
+        elif patch_size == 8:
+            self.fpn1 = nn.Sequential(
+                nn.GroupNorm(1, embed_dim),
+                nn.ConvTranspose2d(embed_dim, embed_dim, kernel_size=2, stride=2),
+            )
+
+            self.fpn2 = nn.GroupNorm(1, embed_dim)
+
+            self.fpn3 = nn.Sequential(
+                nn.GroupNorm(1, embed_dim),
+                nn.MaxPool2d(kernel_size=2, stride=2),
+            )
+
+            self.fpn4 = nn.Sequential(
+                nn.GroupNorm(1, embed_dim),
+                nn.MaxPool2d(kernel_size=4, stride=4),
+            )
+
+     
+            
 
     def init_weights(self, pretrained=None):
         pretrained = pretrained or self.pretrained
