@@ -15,12 +15,12 @@ resume = False
 
 tta_model = dict(type="SegTTAModel")
 randomness = dict(
-    seed=42,
+    seed=0,
 )
 
 log_config = dict(
     interval=50,
-    img_interval=50      ,
+    img_interval=500,
     hooks=[
         dict(type='TextLoggerHook', by_epoch=False),
         # dict(type='TensorboardLoggerHook')

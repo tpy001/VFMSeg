@@ -29,7 +29,7 @@ param_scheduler = [
 ]
 
 
-train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=2000)
+train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=8000)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 default_hooks = dict(
@@ -37,8 +37,8 @@ default_hooks = dict(
     logger=dict(type="LoggerHook", interval=50, log_metric_by_epoch=False),
     param_scheduler=dict(type="ParamSchedulerHook"),
     checkpoint=dict(
-        # type="CheckpointHook", by_epoch=False, interval=4000, max_keep_ckpts=3
-        type="CheckpointHook", by_epoch=False, save_best='citys_mIoU',interval=40000
+        type="CheckpointHook", by_epoch=False, interval=4000, max_keep_ckpts=3
+        # type="CheckpointHook", by_epoch=False, save_best='citys_mIoU',interval=40000
     ),
     sampler_seed=dict(type="DistSamplerSeedHook"),
     # visualization=dict(type="SegVisualizationHook"),

@@ -110,16 +110,11 @@ class DGDataset(object):
 @DATASETS.register_module()
 class UDADataset(object):
 
-    def __init__(self, source, target, **cfg):
+    def __init__(self, source, **cfg):
         self.source = DATASETS.build(source)
-        self.target = DATASETS.build(target)
-        self.ignore_index = self.target.ignore_index
-        self.CLASSES = self.target.METAINFO['classes']
-        self.PALETTE = self.target.METAINFO['palette']
-        assert self.target.ignore_index == self.source.ignore_index
-        assert self.target.METAINFO['classes'] == self.source.METAINFO['classes']
-        assert self.target.METAINFO['palette'] == self.source.METAINFO['palette']
-
+        self.ignore_index = self.source.ignore_index
+        self.CLASSES = self.source.METAINFO['classes']
+        self.PALETTE = self.source.METAINFO['palette']
         if 'rare_class_sampling' in cfg:
             rcs_cfg = cfg['rare_class_sampling']
         else:

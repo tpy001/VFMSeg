@@ -1,8 +1,8 @@
 from copy import deepcopy
 # dataset config
 _base_ = [
-    # "../datasets/dg_gta2citys_1024x1024.py",
-    "../datasets/dg_gta2map_512x512.py",
+    "../datasets/dg_gta2citys_1024x1024.py",
+    # "../datasets/dg_gta2map_512x512.py",
     # "../datasets/dg_gta2bdd100k_512x512.py",
     "../../_base_/default_runtime.py",
     "../../_base_/models/lora_dinov2_ms.py",
