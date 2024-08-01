@@ -1,6 +1,10 @@
 _base_ = [
     "../../_base_/datasets/gta_512x512.py",
-    "../../_base_/datasets/cityscapes_512x512.py",
+    "../../_base_/datasets/bdd100k_512x512.py",
+    # "../../_base_/datasets/cityscapes_512x512.py",
+    "../../_base_/datasets/cityscapes_1536x1536.py",
+    "../../_base_/datasets/mapillary_1536x1536.py",
+
 ]
 
 dg_dataset_train = dict(
@@ -15,6 +19,11 @@ dg_dataset_train = dict(
 )
 
 dg_dataset_val = {{_base_.val_cityscapes}}
+# dg_dataset_val = {{_base_.val_bdd}}
+# dg_dataset_val = {{_base_.val_mapillary}}
+
+
+
 
 train_dataloader = dict(
     batch_size=2,

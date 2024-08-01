@@ -12,7 +12,8 @@ cityscapes_train_pipeline = [
 ]
 cityscapes_test_pipeline = [
     dict(type="LoadImageFromFile"),
-    dict(type="Resize", scale=(2048*1.5, 1024*1.5), keep_ratio=True),    # dict(type="Resize", scale=(1024, 512), keep_ratio=True),
+    dict(type="Resize", scale=(3072, 1536), keep_ratio=True),
+    # dict(type="Resize", scale=(1024, 512), keep_ratio=True),
     # add loading annotation after ``Resize`` because ground truth
     # does not need to do resize data transform
     dict(type="LoadAnnotations"),
