@@ -69,7 +69,7 @@ class LinearHead(BaseDecodeHead):
 
         return out
 
-    def _loss(self, inputs, seg_label,return_logits=False) -> dict:
+    def loss(self, inputs, seg_label,return_logits=False) -> dict:
         # inputs: 64x64
         # seg_label: 512x512
         seg_logits = self.forward(inputs)
