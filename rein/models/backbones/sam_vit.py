@@ -136,15 +136,15 @@ class SAMViT(BaseModule):
             # 4,32,32,768
             if idx in self.out_indices:
                 features.append(x.permute(0, 3, 1, 2))
-        features[0] = F.interpolate(
-            features[0], scale_factor=4, mode="bilinear", align_corners=False
-        )
-        features[1] = F.interpolate(
-            features[1], scale_factor=2, mode="bilinear", align_corners=False
-        )
-        features[3] = F.interpolate(
-            features[3], scale_factor=0.5, mode="bilinear", align_corners=False
-        )
+        # features[0] = F.interpolate(
+        #     features[0], scale_factor=4, mode="bilinear", align_corners=False
+        # )
+        # features[1] = F.interpolate(
+        #     features[1], scale_factor=2, mode="bilinear", align_corners=False
+        # )
+        # features[3] = F.interpolate(
+        #     features[3], scale_factor=0.5, mode="bilinear", align_corners=False
+        # )
         return tuple(features)
 
 
