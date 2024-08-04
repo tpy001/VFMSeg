@@ -1,5 +1,5 @@
 _base_ = [
-    "../../_base_/datasets/gta_1536x1536.py",
+    "../../_base_/datasets/gta_1024x1024.py",
     "../../_base_/datasets/bdd100k_1536x1536.py",
     "../../_base_/datasets/cityscapes_1536x1536.py",
     "../../_base_/datasets/mapillary_1536x1536.py",
@@ -15,7 +15,7 @@ train_dataloader = dict(
         source = {{_base_.train_cityscapes}},
         rare_class_sampling=dict(
             class_temp=0.01,
-            min_crop_ratio=8,
+            min_crop_ratio=2,
             min_pixels=3000,    
         ),
     )

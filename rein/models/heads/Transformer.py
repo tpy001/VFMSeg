@@ -258,6 +258,7 @@ class MaskTransformerDecoder(TransformerDecoder):
         super().__init__(**kwargs)
         self.mask_ratio = mask_ratio
         self.mask_token = nn.Parameter(torch.randn(1,self.in_channels,1,1))
+        self.mask_enable = True
 
     def mask_feat(self,feats):
         b, c, h, w = feats.shape
@@ -268,7 +269,8 @@ class MaskTransformerDecoder(TransformerDecoder):
 
     def forward(self, query,img_feats):
         # Mask features
-        query = self.mask_feat(query)
+        if self.mask_enable:
+            query = self.mask_feat(query)
 
         # Transformer Decoder
         b, c, h, w = img_feats.shape

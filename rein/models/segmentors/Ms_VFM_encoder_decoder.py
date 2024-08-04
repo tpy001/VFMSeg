@@ -401,20 +401,27 @@ class MsVFMEncoderDecoder(EncoderDecoder):
         threadshod = self.test_cfg.get('threadshod', 1.0)
         conf = self.test_cfg.get('conf', 1.0)
 
-        lr_img_size = self.test_cfg.get('lr_img_size', None)
-        assert lr_img_size is not None
-
         seg_logits = inputs.new_zeros((inputs.shape[0], self.out_channels, inputs.shape[2], inputs.shape[3]))
         for index in range(2):
             if index == 0:
-                imgs = resize(inputs, size=lr_img_size, mode='bilinear', align_corners=self.align_corners)
+                # crop_h, crop_w = self.test_cfg['crop_size']
+                # assert crop_h == crop_w, 'crop_size should be square'   
+                # h,w = inputs.shape[-2:]
+                # s = min(h,w) / crop_h
+                # img_size = (int(h / s),int(w /s ))
+                # imgs = resize(inputs, size=img_size, mode='bilinear', align_corners=self.align_corners)
+                imgs = resize(inputs, size=(512,1024), mode='bilinear', align_corners=self.align_corners)
             else:   
                 imgs = inputs
 
             seg_logits = resize(seg_logits, size=imgs.shape[2:], mode='bilinear', align_corners=self.align_corners) 
             if index == 0:
-                seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(imgs,batch_img_metas) 
+                # seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(imgs,batch_img_metas) 
+                seg_logits = super(MsVFMEncoderDecoder,self).whole_inference(imgs,batch_img_metas) 
+
             else:
+                if hasattr(self.aux_decoder.transformer_decoder,'mask_enable'):
+                    self.aux_decoder.transformer_decoder.mask_enable = False
                 h_stride, w_stride = self.test_cfg.stride
                 h_crop, w_crop = self.test_cfg.crop_size
                 batch_size, _, h_img, w_img = imgs.size()
@@ -453,6 +460,9 @@ class MsVFMEncoderDecoder(EncoderDecoder):
                         count_mat[:, :, y1:y2, x1:x2] += 1
                 assert (count_mat == 0).sum() == 0
                 seg_logits = preds / count_mat
+
+                if hasattr(self.aux_decoder.transformer_decoder,'mask_enable'):
+                    self.aux_decoder.transformer_decoder.mask_enable = True
 
         return seg_logits
             
