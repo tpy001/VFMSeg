@@ -91,6 +91,17 @@ if __name__ == "__main__":
     # interpolate patch_embed
     if "model" in checkpoint:
         checkpoint = checkpoint["model"]
+
+    # delete rope
+    delete_key = []
+    for key in checkpoint.keys():
+        if 'rope' in key:
+            delete_key.append(key)
+    for key in delete_key:
+        checkpoint.pop(key)
+        print(f"delete {key}")
+
+    # interpolate patch_embed
     patch_embed = checkpoint["patch_embed.proj.weight"]
     C_o, C_in, H, W = patch_embed.shape
     patch_embed = torch.nn.functional.interpolate(
@@ -102,7 +113,7 @@ if __name__ == "__main__":
     interpolate_pos_embed(checkpoint, new_size=32)
 
     print("======== new state_dict ========")
-    for k, v in list(checkpoint.items()):
-        print(k, "        ", v.shape)
+    # for k, v in list(checkpoint.items()):
+    #     print(k, "        ", v.shape)
 
     torch.save(checkpoint, args.output)

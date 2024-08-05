@@ -716,7 +716,7 @@ class EVA2(nn.Module):
                     drop=drop_rate,
                     attn_drop=attn_drop_rate,
                     drop_path=dpr[i],
-                    norm_layer=norm_layer,
+                    # norm_layer=norm_layer,
                     init_values=init_values,
                     window_size=self.patch_embed.patch_shape
                     if use_rel_pos_bias
@@ -775,14 +775,17 @@ class EVA2(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    def init_weights(self):
+    def init_weights(self,ckpt=None):
         """Initialize the weights in backbone.
 
         Args:
             pretrained (str, optional): Path to pre-trained weights.
                 Defaults to None.
         """
-        pretrained = self.pretrained
+        if ckpt:
+            pretrained = ckpt
+        else:
+            pretrained = self.pretrained
 
         def _init_weights(m):
             if isinstance(m, nn.Linear):
@@ -798,7 +801,8 @@ class EVA2(nn.Module):
             logger = MMLogger.get_current_instance()
             load_checkpoint(self, pretrained, strict=False, logger=logger)
         elif pretrained is None:
-            self.apply(_init_weights)
+            # self.apply(_init_weights)
+            pass
         else:
             raise TypeError("pretrained must be a str or None")
 
@@ -832,15 +836,15 @@ class EVA2(nn.Module):
             if i in self.out_indices:
                 xp = x[:, 1:, :].permute(0, 2, 1).reshape(B, -1, Hp, Wp)
                 features.append(xp.contiguous())
-        features[0] = F.interpolate(
-            features[0], scale_factor=4, mode="bilinear", align_corners=False
-        )
-        features[1] = F.interpolate(
-            features[1], scale_factor=2, mode="bilinear", align_corners=False
-        )
-        features[3] = F.interpolate(
-            features[3], scale_factor=0.5, mode="bilinear", align_corners=False
-        )
+        # features[0] = F.interpolate(
+        #     features[0], scale_factor=4, mode="bilinear", align_corners=False
+        # )
+        # features[1] = F.interpolate(
+        #     features[1], scale_factor=2, mode="bilinear", align_corners=False
+        # )
+        # features[3] = F.interpolate(
+        #     features[3], scale_factor=0.5, mode="bilinear", align_corners=False
+        # )
 
         return tuple(features)
 
