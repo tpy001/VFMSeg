@@ -416,8 +416,8 @@ class MsVFMEncoderDecoder(EncoderDecoder):
 
             seg_logits = resize(seg_logits, size=imgs.shape[2:], mode='bilinear', align_corners=self.align_corners) 
             if index == 0:
-                # seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(imgs,batch_img_metas) 
-                seg_logits = super(MsVFMEncoderDecoder,self).whole_inference(imgs,batch_img_metas) 
+                seg_logits = super(MsVFMEncoderDecoder,self).slide_inference(imgs,batch_img_metas) 
+                # seg_logits = super(MsVFMEncoderDecoder,self).whole_inference(imgs,batch_img_metas) 
 
             else:
                 if hasattr(self.aux_decoder.transformer_decoder,'mask_enable'):
