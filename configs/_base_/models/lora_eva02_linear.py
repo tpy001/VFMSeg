@@ -18,14 +18,15 @@ model = dict(
             lora_alpha=32,
             lora_dropout=0.1,
             r=32,
-            target_modules=['q_proj','k_proj','v_proj','mlp.w1','mlp.w2','mlp.w3']
+            target_modules=['q_proj','k_proj','v_proj','attn.proj']
+                            # 'mlp.w1','mlp.w2','mlp.w3']
                             # 'attn.proj']
         ),
         checkpoint='checkpoints/EVA02/eva02_L_converted.pth',
         backbone=dict(
             type='EVA2',
             depth=24,
-            drop_path_rate=0.2,
+            drop_path_rate=0.1,
             embed_dim=1024,
             img_size=512,
             in_chans=3,
