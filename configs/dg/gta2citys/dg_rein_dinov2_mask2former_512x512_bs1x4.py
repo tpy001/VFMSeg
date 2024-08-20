@@ -1,8 +1,6 @@
 # dataset config
 _base_ = [
-    # "../datasets/dg_gta2citys_512x512.py",
-    # "../datasets/dg_gta2bdd100k_512x512.py",
-    "../datasets/dg_gta2map_512x512.py",
+    "../datasets/dg_gta2citys_512x512.py",
     "../../_base_/default_runtime.py",
     "../../_base_/models/rein_dinov2_mask2former.py",
 ]

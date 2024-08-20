@@ -1,9 +1,8 @@
 from copy import deepcopy
 # dataset config
 _base_ = [
-    "../datasets/dg_gta2citys_1024x1024.py",
-    # "../datasets/dg_gta2map_512x512.py",
-    # "../datasets/dg_gta2bdd100k_512x512.py",
+    # "../datasets/dg_gta2citys_512x512.py",
+    "../datasets/dg_gta_1536x1536.py",
     "../../_base_/default_runtime.py",
     "../../_base_/models/lora_dinov2_ms.py",
 ]
@@ -31,7 +30,7 @@ param_scheduler = [
 ]
 
 
-train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=2000)
+train_cfg = dict(type="IterBasedTrainLoop", max_iters=40000, val_interval=40000)
 val_cfg = dict(type="ValLoop")
 test_cfg = dict(type="TestLoop")
 default_hooks = dict(
@@ -39,8 +38,8 @@ default_hooks = dict(
     logger=dict(type="LoggerHook", interval=50, log_metric_by_epoch=False),
     param_scheduler=dict(type="ParamSchedulerHook"),
     checkpoint=dict(
-        # type="CheckpointHook", by_epoch=False, interval=4000, max_keep_ckpts=3
-        type="CheckpointHook", by_epoch=False, save_best='citys_mIoU',interval=40000
+        type="CheckpointHook", by_epoch=False, interval=4000, max_keep_ckpts=3
+        # type="CheckpointHook", by_epoch=False, save_best='citys_mIoU',interval=40000
     ),
     sampler_seed=dict(type="DistSamplerSeedHook"),
     # visualization=dict(type="SegVisualizationHook"),

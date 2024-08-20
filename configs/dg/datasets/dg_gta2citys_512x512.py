@@ -1,9 +1,11 @@
 _base_ = [
     "../../_base_/datasets/gta_512x512.py",
     "../../_base_/datasets/bdd100k_512x512.py",
-    # "../../_base_/datasets/cityscapes_512x512.py",
-    "../../_base_/datasets/cityscapes_1536x1536.py",
-    "../../_base_/datasets/mapillary_1536x1536.py",
+    "../../_base_/datasets/cityscapes_512x512.py",
+    # "../../_base_/datasets/cityscapes_2048x2048.py",
+    # "../../_base_/datasets/cityscapes_1536x1536.py",
+
+    "../../_base_/datasets/mapillary_512x512.py",
 
 ]
 

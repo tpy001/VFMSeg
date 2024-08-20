@@ -9,3 +9,5 @@ work_dirs/
 results/
 res_test/
 ablations/
+debug/
+qualitive_results/
