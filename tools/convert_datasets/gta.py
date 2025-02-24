@@ -8,6 +8,7 @@ import os.path as osp
 import mmcv
 import numpy as np
 from PIL import Image
+from mmengine.utils import track_parallel_progress,track_progress,scandir,mkdir_or_exist
 
 
 def convert_to_train_id(file):
@@ -88,12 +89,12 @@ def main():
     args = parse_args()
     gta_path = args.gta_path
     out_dir = args.out_dir if args.out_dir else gta_path
-    mmcv.mkdir_or_exist(out_dir)
+    mkdir_or_exist(out_dir)
 
     gt_dir = osp.join(gta_path, args.gt_dir)
 
     poly_files = []
-    for poly in mmcv.scandir(
+    for poly in scandir(
             gt_dir, suffix=tuple(f'{i}.png' for i in range(10)),
             recursive=True):
         poly_file = osp.join(gt_dir, poly)
@@ -101,10 +102,10 @@ def main():
     poly_files = sorted(poly_files)
 
     if args.nproc > 1:
-        sample_class_stats = mmcv.track_parallel_progress(
+        sample_class_stats = track_parallel_progress(
             convert_to_train_id, poly_files, args.nproc)
     else:
-        sample_class_stats = mmcv.track_progress(convert_to_train_id,
+        sample_class_stats = track_progress(convert_to_train_id,
                                                  poly_files)
 
     save_class_stats(out_dir, sample_class_stats)
