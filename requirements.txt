@@ -9,3 +9,4 @@ einops
 future
 tensorboard
 peft==0.10.0
+transformers==4.42.4

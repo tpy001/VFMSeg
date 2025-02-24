@@ -35,7 +35,7 @@ conda activate DGVFM
 **1. Download the dataset**
 
 * **GTA:**  Download all image and label packages from [here](https://download.visinf.tu-darmstadt.de/data/from_games/) and extract them to `data/gta`.
-* **Cityscapes:** Download `leftImg8bit_trainvaltest.zip` and `gt_trainvaltest.zip` from [here](https://www.cityscapes-dataset.com/downloads/) and extract them to `data/cityscapes`.
+* **Cityscapes:** Download `leftImg8bit_trainvaltest.zip` and ` ` from [here](https://www.cityscapes-dataset.com/downloads/) and extract them to `data/cityscapes`.
 * **BDD100K:** Download the 10K Images and Segmentation from [here](https://bdd-data.berkeley.edu/portal.html#download) and extract them to `datasets/bdd100k`.
 * **Mapillary:** Download MAPILLARY v1.2 from [here](https://research.mapillary.com/) and extract it to `data/mapillary`.
 
@@ -91,7 +91,7 @@ python tools/convert_datasets/mapillary2cityscape.py data/mapillary data/mapilla
 | Model  | Download Link                                                | filename                   | Size  |
 | ------ | ------------------------------------------------------------ | -------------------------- | ----- |
 | DINOv2 | [DINOv2-ViT-L/14](https://dl.fbaipublicfiles.com/dinov2/dinov2_vitl14/dinov2_vitl14_pretrain.pth) | dinov2_vitl14_pretrain.pth | 1.2GB |
-| EVA02  | [EVA02-ViT-L/14](https://huggingface.co/Yuxin-CV/EVA-02/blob/main/eva02/pt/eva02_L_pt_m38m_p14to16.pt) | eva02_L_pt_m38m_p14to16.pt | 613MB |
+| EVA02  | [EVA02-ViT-L/14](https://huggingface.co/Yuxin-CV/EVA-02/resolve/main/eva02/pt/eva02_L_pt_m38m_p14to16.pt) | eva02_L_pt_m38m_p14to16.pt | 613MB |
 | CLIP   | [CLIP-ViT-L/14](https://openaipublic.azureedge.net/clip/models/b8cca3fd41ae0c99ba7e8951adf17d267cdb84cd88be6f7c2e0eca1737a03836/ViT-L-14.pt) | ViT-L-14.pt                | 890MB |
 | SAM    | [SAM-ViT-H/14](https://dl.fbaipublicfiles.com/segment_anything/sam_vit_h_4b8939.pth) | sam_vit_h_4b8939.pth       | 2.4GB |
 
@@ -101,7 +101,7 @@ python tools/convert_datasets/mapillary2cityscape.py data/mapillary data/mapilla
   # convert DINOv2
   python tools/convert_models/convert_dinov2.py checkpoints/dinov2_vitl14_pretrain.pth checkpoints/dinov2_converted.pth
   # convert EVA02
-  python tools/convert_models/convert_eva2_512x512.py checkpoints/eva02_L_pt_m38m_p14to16.pth checkpoints/eva02_L_converted.pth
+  python tools/convert_models/convert_eva2_512x512.py checkpoints/eva02_L_pt_m38m_p14to16.pt checkpoints/eva02_L_converted.pth
   # convert CLIP
   python tools/convert_models/convert_clip.py checkpoints/ViT-L-14.pt checkpoints/CLIP-ViT-L_converted.pth
   # convert SAM
@@ -149,4 +149,26 @@ This section provides an overview of the code files related to the model archite
 
 - **`core/segmentors/Ms_VFM_encoder_decoder.py`**: This file implements our multi-scale training algorithm and the two-stage coarse-to-fine inference algorithm.
 
-  
+## Citation
+
+If you find this code useful for your research, please consider citing our paper:
+
+```
+@inproceedings{
+anonymous2024unleashing,
+title={Unleashing the Power of Visual Foundation Models for Generalizable Semantic Segmentation},
+author={Peiyuan Tang, Xiaodong Zhang, Chunze Yang, Haoran Yuan, Jun Sun, Danfeng Shan, Zijiang James Yan},
+booktitle={The 39th Annual AAAI Conference on Artificial Intelligence},
+year={2024},
+url={https://openreview.net/forum?id=ZarQ2RfHxO}
+}
+```
+
+## Acknowledgment
+
+Our implementation is based on the following repositories. We thank the authors for their contributions:
+
+- [MMSegmentation](https://github.com/open-mmlab/mmsegmentation)
+- [Rein](https://github.com/w1oves/Rein?tab=readme-ov-file)
+- [DAFormer](https://github.com/lhoyer/DAFormer)
+- [HRDA](https://github.com/lhoyer/HRDA)
