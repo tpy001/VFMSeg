@@ -3,8 +3,8 @@
 This is the official implementation of the paper "Unleashing the Power of Visual Foundation Models for Generalizable Semantic Segmentation." In this paper, we propose a novel framework to leverage visual foundation models for domain generalizable semantic segmentation (DGSS). The core idea is to fine-tune the VFM with minimal modifications and enable inference on high-resolution images. We argue that this approach can maintain the pretrained knowledge of the VFM and unleash its power for DGSS.
 We conduct experiments on various benchmarks and achieve an average mIoU of 70.3% on GTAV to {Cityscapes + BDD100K + Mapillary} and 71.62% on Cityscapes to {BDD100K + Mapillary}, outperforming the previous state-of-the-art approaches by 3.3% and 1.1% in average mIoU, respectively.
 
-![figure2.png](res/figure2.png)
-![figure3.png](res/figure3.png)
+![figure2.png](resources/figure2.png)
+![figure3.png](resources/figure3.png)
 
 ## Table of Contents
 
