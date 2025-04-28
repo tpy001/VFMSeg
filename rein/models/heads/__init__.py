@@ -5,6 +5,7 @@ from .linear_head import LinearHead
 from .attention_head import AttentionHead
 from .VFMHead import VFMHead
 from .Transformer import TransformerDecoder,MaskTransformerDecoder
+from .swin_transformer import SwinTransformer2
 
 __all__ = ["ReinMask2FormerHead",
            "HRDAHead",
@@ -15,4 +16,5 @@ __all__ = ["ReinMask2FormerHead",
            "LinearHead",
            "VFMHead",
            "TransformerDecoder",
-           "MaskTransformerDecoder"]
+           "MaskTransformerDecoder",
+           "SwinTransformer2"]
