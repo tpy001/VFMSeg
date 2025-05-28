@@ -124,10 +124,10 @@ You can also run the script:
 
 ## Pretrained Models
 We provide the following pretrained models:
-  | Setting  |  checkpoint |    
-  | -------- | ------ |
-  | GTAV -> Citys + BDD + Map | [gta.pth](https://drive.google.com/file/d/11MDzmg9o2KN2gUJA5l-HXjmUB5egLnV2/view?usp=drive_link)
-  | Citys -> BDD + Map | [citys.pth](https://drive.google.com/file/d/1zw5IS1g184ARPeqIyvI8032pe76KfgxE/view?usp=drive_link)
+  | Backbone | Setting  |  checkpoint |    
+  | -------- | ------ | ------ |
+  | DINOv2 | GTAV -> Citys + BDD + Map | [gta.pth](https://drive.google.com/file/d/11MDzmg9o2KN2gUJA5l-HXjmUB5egLnV2/view?usp=drive_link)
+   | DINOv2  | Citys -> BDD + Map | [citys.pth](https://drive.google.com/file/d/1zw5IS1g184ARPeqIyvI8032pe76KfgxE/view?usp=drive_link)
 
 ## Evaluation
 
