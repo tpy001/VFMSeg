@@ -13,7 +13,7 @@ from mmengine.logging import print_log
 from mmengine.runner import Runner
 
 from mmseg.registry import RUNNERS
-import rein  # tpy, 通过导入rein模块，从而在mmseg中注册自己定义的module dataset等，看似无用，其实有很大的用处
+import src  # tpy, 通过导入rein模块，从而在mmseg中注册自己定义的module dataset等，看似无用，其实有很大的用处
              # 注意：导入rein模块时，会自动运行rein下的__init__.py文件，需要在__init__.py文件里，导入其余的模块
 
 
